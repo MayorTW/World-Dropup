@@ -1,0 +1,4 @@
+dropbox_path: "/WorldBackup"
+upload_rate: 1024
+download_rate: 1024
+min_interval: 300 # in seconds

@@ -1,0 +1,6 @@
+<ivy-module version="2.0">
+    <info organisation="tw.mayortw" module="world-dropup"/>
+    <dependencies>
+        <dependency org="com.dropbox.core" name="dropbox-core-sdk" rev="3.0.11"/>
+    </dependencies>
+</ivy-module>

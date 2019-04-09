@@ -1,0 +1,21 @@
+name: "World-Dropup"
+main: tw.mayortw.dropup.DropupPlugin
+version: 0.2
+description: "Back up worlds to Dropbox"
+author: "R26"
+softdepend:
+    - Multiverse-Core
+commands:
+    dropup:
+        usage: |
+            Commands:
+                backup
+                restore
+                uploadspeed
+                downloadspeed
+                disable
+                enable
+                list
+                book
+        aliases: ["du"]
+        permissions: dropup.*
