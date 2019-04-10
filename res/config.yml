@@ -1,4 +1,5 @@
-dropbox_path: "/WorldBackup"
+dropbox_token: "TOKEN"
+dropbox_path: "/backup"
 upload_rate: 1024
 download_rate: 1024
 min_interval: 300 # in seconds
