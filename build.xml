@@ -33,6 +33,7 @@
             <fileset dir="${build}" />
             <fileset dir="${src}" includes="**/*.java" />
             <fileset dir="${res}" includes="*.yml" />
+            <zipgroupfileset dir="${lib}" includes="dropbox-core-sdk-3.0.11.jar,jackson-core-2.7.4.jar" />
         </jar>
     </target>
 
