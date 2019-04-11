@@ -157,7 +157,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         for(UUID id : awaitBackups.keySet()) {
             backupWorld(getServer().getWorld(id), false);
         }
-        //TODO wait for async uploading world from auto backup
+        // TODO speed up and wait for async uploading world from auto backup
 
         saveConfig();
     }
@@ -191,12 +191,13 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                 // Dropbox says to split the session with >150Mb files
                 // but they didn't me a good api for that
                 // so I'm not doing it
-                String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/WorldBackup"),
+                String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/backup"),
                         world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
                 OutputStream dbxOut = dbxClient.files().upload(uploadPath).getOutputStream(); // TODO limit the speed
+                LimitedOutputStream limited = new LimitedOutputStream(dbxOut, getConfig().getInt("upload_rate", 1024));
 
                 // Zip and upload
-                FileUtil.zipFiles(dbxOut, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
+                FileUtil.zipFiles(limited, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
 
                 getServer().broadcastMessage(String.format("[§e%s§f] §a%s§r 已備份到 %s", getName(), world.getName(), uploadPath));
             } catch(IOException | DbxException e) {
