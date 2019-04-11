@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.UUID;
 
 import org.bukkit.command.*;
@@ -18,6 +18,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitScheduler;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.World;
 
 import com.dropbox.core.DbxException;
@@ -30,7 +32,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
 
     DbxClientV2 dbxClient;
 
-    private HashSet<UUID> awaitBackups = new HashSet<>();
+    private HashMap<UUID, Integer> awaitBackups = new HashMap<>();
 
     private boolean disabled = false;
     private String disabledReason;
@@ -48,7 +50,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
 
         try {
             dbxClient = new DbxClientV2(DbxRequestConfig.newBuilder("dropup/1.0").build(), getConfig().getString("dropbox_token"));
-            getLogger().info("Logged into " + dbxClient.users().getCurrentAccount().getName().getDisplayName());
+            getLogger().info("Logged in to Dropbox as " + dbxClient.users().getCurrentAccount().getName().getDisplayName());
         } catch (DbxException e) {
             getLogger().severe("Dropbox login error: " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);
@@ -69,7 +71,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                         world = ((Entity) sender).getLocation().getWorld();
                     } else {
                         sender.sendMessage("你沒有在一個世界，請指定一個");
-                        return false;
+                        return true;
                     }
                     if(world == null) {
                         sender.sendMessage("找不到世界");
@@ -152,25 +154,33 @@ public class DropupPlugin extends JavaPlugin implements Listener {
 
     public void onDisable() {
         // Execute all awaiting backups
-        for(UUID id : awaitBackups) {
+        for(UUID id : awaitBackups.keySet()) {
             backupWorld(getServer().getWorld(id), false);
         }
+        //TODO wait for async uploading world from auto backup
 
         saveConfig();
     }
 
     private void backupWorldLater(World world) {
         UUID id = world.getUID();
-        if(awaitBackups.contains(id)) return;
+        if(awaitBackups.containsKey(id)) return;
 
-        getServer().getScheduler().runTaskLater(this, () -> {
+        BukkitTask task = getServer().getScheduler().runTaskLater(this, () -> {
             backupWorld(world, true);
-        }, getConfig().getInt("min_interval", 300) * 20);
+        }, getConfig().getInt("min_interval", 1800) * 20);
 
-        awaitBackups.add(id);
+        awaitBackups.put(id, task.getTaskId());
     }
 
     private void backupWorld(World world, boolean async) {
+        BukkitScheduler scheduler = getServer().getScheduler();
+
+        // Cancel awaiting backup task for this world
+        Integer backupTaskId = awaitBackups.remove(world.getUID());
+        if(backupTaskId != null && scheduler.isQueued(backupTaskId))
+            scheduler.cancelTask(backupTaskId);
+
         Runnable task = () -> {
             getServer().broadcastMessage(String.format("[§e%s§f] 正在備份 §a%s", getName(), world.getName()));
 
@@ -199,7 +209,5 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             getServer().getScheduler().runTaskAsynchronously(this, task);
         else
             task.run();
-
-        awaitBackups.remove(world.getUID());
     }
 }
