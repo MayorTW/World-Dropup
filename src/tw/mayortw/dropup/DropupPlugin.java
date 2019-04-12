@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -20,6 +21,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.BukkitWorker;
 import org.bukkit.World;
 
 import com.dropbox.core.DbxException;
@@ -33,6 +35,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     DbxClientV2 dbxClient;
 
     private HashMap<UUID, Integer> awaitBackups = new HashMap<>();
+    private HashMap<Integer, LimitedOutputStream> uploadingStreams = new HashMap<>();
 
     private boolean disabled = false;
     private String disabledReason;
@@ -157,7 +160,24 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         for(UUID id : awaitBackups.keySet()) {
             backupWorld(getServer().getWorld(id), false);
         }
-        // TODO speed up and wait for async uploading world from auto backup
+
+        // Speed up and wait for world that are still uploading in background
+        getLogger().info("Waiting for all uploads to finish");
+        for(BukkitWorker worker : getServer().getScheduler().getActiveWorkers()) {
+            int id = worker.getTaskId();
+            LimitedOutputStream uploading = uploadingStreams.get(id);
+            if(uploading != null) {
+                uploading.setRate(-1);
+                try {
+                    while(uploadingStreams.containsKey(id)) { // just in case it did (not) finish
+                        synchronized(uploading) {
+                            uploading.wait();
+                        }
+                    }
+                } catch(InterruptedException exc) {}
+            }
+        }
+        getLogger().info("All uploads are finished");
 
         saveConfig();
     }
@@ -174,41 +194,57 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     }
 
     private void backupWorld(World world, boolean async) {
-        BukkitScheduler scheduler = getServer().getScheduler();
+        getServer().broadcastMessage(String.format("[§e%s§f] 正在備份 §a%s", getName(), world.getName()));
 
-        // Cancel awaiting backup task for this world
+        // Cancel awaiting backup task for this world if there's any
+        BukkitScheduler scheduler = getServer().getScheduler();
         Integer backupTaskId = awaitBackups.remove(world.getUID());
         if(backupTaskId != null && scheduler.isQueued(backupTaskId))
             scheduler.cancelTask(backupTaskId);
 
-        Runnable task = () -> {
-            getServer().broadcastMessage(String.format("[§e%s§f] 正在備份 §a%s", getName(), world.getName()));
+        try {
+            // Create a Dropbox session (and OutputStream) to upload file
+            // TODO split up big files
+            String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/backup"),
+                    world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
+            OutputStream dbxOut = dbxClient.files().upload(uploadPath).getOutputStream();
+            LimitedOutputStream limitedStream = new LimitedOutputStream(dbxOut, getConfig().getInt("upload_rate", 1024));
 
-            world.save(); // Maybe save it in main thread?
+            // Save the world
+            world.save();
             File worldFolder = world.getWorldFolder();
 
-            try {
-                // Dropbox says to split the session with >150Mb files
-                // but they didn't me a good api for that
-                // so I'm not doing it
-                String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/backup"),
-                        world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
-                OutputStream dbxOut = dbxClient.files().upload(uploadPath).getOutputStream(); // TODO limit the speed
-                LimitedOutputStream limited = new LimitedOutputStream(dbxOut, getConfig().getInt("upload_rate", 1024));
+            // this is to be run in background if async is true
+            Consumer<BukkitTask> task = worker -> {
+                // Put the stream object in map so it can be sped up later when needed
+                // Can also act as a wait-notify object
+                if(worker != null) uploadingStreams.put(worker.getTaskId(), limitedStream);
 
                 // Zip and upload
-                FileUtil.zipFiles(limited, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
+                try {
+                    FileUtil.zipFiles(limitedStream, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
+                    getServer().broadcastMessage(String.format("[§e%s§f] §a%s§r 已備份到 %s", getName(), world.getName(), uploadPath));
+                } catch(IOException e) {
+                    getServer().broadcastMessage(String.format("[§e%s§f] 備份錯誤： §c%s", getName(), e.getMessage()));
+                    e.printStackTrace();
+                }
 
-                getServer().broadcastMessage(String.format("[§e%s§f] §a%s§r 已備份到 %s", getName(), world.getName(), uploadPath));
-            } catch(IOException | DbxException e) {
-                getServer().broadcastMessage(String.format("[§e%s§f] 備份錯誤： §c%s", getName(), e.getMessage()));
-                e.printStackTrace();
-            }
-        };
+                if(worker != null) {
+                    synchronized(limitedStream) {
+                        uploadingStreams.remove(worker.getTaskId());
+                        limitedStream.notifyAll();
+                    }
+                }
+            };
 
-        if(async)
-            getServer().getScheduler().runTaskAsynchronously(this, task);
-        else
-            task.run();
+            if(async)
+                getServer().getScheduler().runTaskAsynchronously(this, task);
+            else
+                task.accept(null);
+
+        } catch(DbxException e) {
+            getServer().broadcastMessage(String.format("[§e%s§f] Dropbox 錯誤： §c%s", getName(), e.getMessage()));
+            e.printStackTrace();
+        }
     }
 }

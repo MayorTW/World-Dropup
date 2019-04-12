@@ -23,23 +23,35 @@ public class LimitedOutputStream extends FilterOutputStream {
         this.limit = limit * 1024; // turn kb into bytes
     }
 
-    public void setRate(int limit) {
-        this.limit = limit;
+    /*
+     * if the limit is negative then it means no limit
+     */
+    public synchronized void setRate(int rate) {
+        this.limit = rate;
     }
 
-    public int getRate(int limit) {
+    public int getRate() {
         return limit;
     }
 
     @Override
-    public void write(int b) throws IOException {
-        while(!tryWrite(b)) Thread.yield();
+    public synchronized void write(int b) throws IOException {
+        while(!tryWrite(b)) {
+            try {
+                Thread.sleep(10);
+            } catch(InterruptedException e) {}
+        }
     }
 
     /*
      * returns true when the byte is written
      */
     private boolean tryWrite(int b) throws IOException {
+        if(limit < 0) {
+            super.write(b); // negative limit = no limit
+            return true;
+        }
+
         long now = System.currentTimeMillis();
 
         available += (double) (now - lastSend) / interval * limit;
