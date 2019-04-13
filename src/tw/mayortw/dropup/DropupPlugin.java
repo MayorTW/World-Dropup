@@ -1,10 +1,14 @@
 package tw.mayortw.dropup;
+/*
+ * Written by R26
+ */
 
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.HashMap;
 import java.util.UUID;
@@ -35,7 +39,8 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     DbxClientV2 dbxClient;
 
     private HashMap<UUID, Integer> awaitBackups = new HashMap<>();
-    private HashMap<Integer, LimitedOutputStream> uploadingStreams = new HashMap<>();
+    private CopyOnWriteArrayList<LimitedOutputStream> uploadingStreams = new CopyOnWriteArrayList<>();
+    private Object lock = new Object();
 
     private boolean disabled = false;
     private String disabledReason;
@@ -162,20 +167,16 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         }
 
         // Speed up and wait for world that are still uploading in background
+        for(LimitedOutputStream uploading : uploadingStreams) {
+            uploading.setRate(-1);
+        }
         getLogger().info("Waiting for all uploads to finish");
-        for(BukkitWorker worker : getServer().getScheduler().getActiveWorkers()) {
-            int id = worker.getTaskId();
-            LimitedOutputStream uploading = uploadingStreams.get(id);
-            if(uploading != null) {
-                uploading.setRate(-1);
-                try {
-                    while(uploadingStreams.containsKey(id)) { // just in case it did (not) finish
-                        synchronized(uploading) {
-                            uploading.wait();
-                        }
-                    }
-                } catch(InterruptedException exc) {}
-            }
+        while(uploadingStreams.size() > 0) {
+            try {
+                synchronized(lock) {
+                    lock.wait();
+                }
+            } catch(InterruptedException e) {}
         }
         getLogger().info("All uploads are finished");
 
@@ -202,49 +203,59 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         if(backupTaskId != null && scheduler.isQueued(backupTaskId))
             scheduler.cancelTask(backupTaskId);
 
-        try {
-            // Create a Dropbox session (and OutputStream) to upload file
-            // TODO split up big files
-            String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/backup"),
-                    world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
-            OutputStream dbxOut = dbxClient.files().upload(uploadPath).getOutputStream();
-            LimitedOutputStream limitedStream = new LimitedOutputStream(dbxOut, getConfig().getInt("upload_rate", 1024));
+        // Save the world
+        world.save();
 
-            // Save the world
-            world.save();
-            File worldFolder = world.getWorldFolder();
+        Consumer<BukkitTask> task = worker -> {
+            DropboxSession session;
+            try {
+                session = new DropboxSession(dbxClient);
+            } catch(DbxException e) {
+                getServer().broadcastMessage(String.format("[§e%s§f] Dropbox錯誤： §c%s", getName(), e.getMessage()));
+                e.printStackTrace();
+                return;
+            }
 
-            // this is to be run in background if async is true
-            Consumer<BukkitTask> task = worker -> {
-                // Put the stream object in map so it can be sped up later when needed
-                // Can also act as a wait-notify object
-                if(worker != null) uploadingStreams.put(worker.getTaskId(), limitedStream);
-
-                // Zip and upload
+            SplitOutputStream splitOut = new SplitOutputStream(session.out, 1024 * 10, offset -> {
                 try {
-                    FileUtil.zipFiles(limitedStream, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
-                    getServer().broadcastMessage(String.format("[§e%s§f] §a%s§r 已備份到 %s", getName(), world.getName(), uploadPath));
-                } catch(IOException e) {
-                    getServer().broadcastMessage(String.format("[§e%s§f] 備份錯誤： §c%s", getName(), e.getMessage()));
+                    session.nextSession(offset);
+                    return session.out;
+                } catch(DbxException e) {
+                    getServer().broadcastMessage(String.format("[§e%s§f] Dropbox錯誤： §c%s", getName(), e.getMessage()));
                     e.printStackTrace();
                 }
+                return null; // And it triggers NullPointerException
+            });
 
-                if(worker != null) {
-                    synchronized(limitedStream) {
-                        uploadingStreams.remove(worker.getTaskId());
-                        limitedStream.notifyAll();
-                    }
-                }
-            };
+            // Put the stream object in map so it can be sped up later when needed
+            LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, getConfig().getInt("upload_rate", 1024));
+            uploadingStreams.add(limitedOut);
 
-            if(async)
-                getServer().getScheduler().runTaskAsynchronously(this, task);
-            else
-                task.accept(null);
+            // Zip and upload
+            try {
+                File worldFolder = world.getWorldFolder();
+                FileUtil.zipFiles(limitedOut, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
 
-        } catch(DbxException e) {
-            getServer().broadcastMessage(String.format("[§e%s§f] Dropbox 錯誤： §c%s", getName(), e.getMessage()));
-            e.printStackTrace();
-        }
+                // Finish Dropbox session
+                String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/backup"),
+                        world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
+                String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
+
+                getServer().broadcastMessage(String.format("[§e%s§f] §a%s§r 已備份到 %s", getName(), world.getName(), uploaded));
+            } catch(IOException | NullPointerException | DbxException e) {
+                getServer().broadcastMessage(String.format("[§e%s§f] 備份錯誤： §c%s", getName(), e.getMessage()));
+                e.printStackTrace();
+            }
+
+            uploadingStreams.remove(limitedOut);
+            synchronized(lock) {
+                lock.notify();
+            }
+        };
+
+        if(async)
+            getServer().getScheduler().runTaskAsynchronously(this, task);
+        else
+            task.accept(null);
     }
 }
