@@ -3,6 +3,9 @@ package tw.mayortw.dropup;
  * Written by R26
  */
 
+import java.util.Arrays;
+import java.util.List;
+
 import org.bukkit.command.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -41,8 +44,6 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         saveDefaultConfig();
         dropboxSignIn();
         getServer().getPluginManager().registerEvents(this, this);
-
-        worldUploader = new WorldUploader(this, dbxClient);
     }
 
     private void dropboxSignIn() {
@@ -59,8 +60,9 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             disabledReason = "Dropbox 未登入";
         } else {
             dbxClient = new DbxClientV2(reqConfig, token);
+            worldUploader = new WorldUploader(this, dbxClient);
             disabled = false;
-            getLogger().info("Logged in to Dropbox as " + getLoginName());
+            getLogger().info("Logged in to Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
         }
     }
 
@@ -73,7 +75,11 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         try {
             return dbxClient.users().getCurrentAccount().getName().getDisplayName();
         } catch (DbxException e) {
-            getLogger().warning("Error getting dropbox login information: " + e.getMessage());
+            getLogger().warning("Dropbox login error: " + e.getMessage());
+            dbxClient = null;
+            worldUploader = null;
+            disabled = true;
+            disabledReason = "Dropbox 登入錯誤";
             return "";
         }
     }
@@ -81,7 +87,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length < 1) return false;
-        if(!args[0].equalsIgnoreCase("signin")) {
+        if(dbxClient == null && !args[0].equalsIgnoreCase("signin")) {
             sender.sendMessage("Dropbox 尚未登入，請用 /dropup signin 來登入");
             return true;
         }
