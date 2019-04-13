@@ -1,5 +1,5 @@
 dropbox_token: "TOKEN"
 dropbox_path: "/backup"
-upload_rate: 1024
-download_rate: 1024
+upload_speed: 1024
+download_speed: 1024
 min_interval: 1800 # in seconds

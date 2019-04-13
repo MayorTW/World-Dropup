@@ -3,16 +3,6 @@ package tw.mayortw.dropup;
  * Written by R26
  */
 
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
-import java.util.HashMap;
-import java.util.UUID;
-
 import org.bukkit.command.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -23,25 +13,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
-import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.scheduler.BukkitWorker;
 import org.bukkit.World;
-
-import com.dropbox.core.DbxException;
-import com.dropbox.core.DbxRequestConfig;
-import com.dropbox.core.v2.DbxClientV2;
 
 public class DropupPlugin extends JavaPlugin implements Listener {
 
+    private WorldUploader worldUploader;
+
     private boolean hasMultiverse = true;
-
-    DbxClientV2 dbxClient;
-
-    private HashMap<UUID, Integer> awaitBackups = new HashMap<>();
-    private CopyOnWriteArrayList<LimitedOutputStream> uploadingStreams = new CopyOnWriteArrayList<>();
-    private Object lock = new Object();
-
     private boolean disabled = false;
     private String disabledReason;
 
@@ -54,15 +32,15 @@ public class DropupPlugin extends JavaPlugin implements Listener {
 
         saveDefaultConfig();
 
-        getServer().getPluginManager().registerEvents(this, this);
-
         try {
-            dbxClient = new DbxClientV2(DbxRequestConfig.newBuilder("dropup/1.0").build(), getConfig().getString("dropbox_token"));
-            getLogger().info("Logged in to Dropbox as " + dbxClient.users().getCurrentAccount().getName().getDisplayName());
-        } catch (DbxException e) {
+            worldUploader = new WorldUploader(this);
+        } catch (com.dropbox.core.DbxException e) {
             getLogger().severe("Dropbox login error: " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);
+            return;
         }
+
+        getServer().getPluginManager().registerEvents(this, this);
     }
 
     @Override
@@ -70,6 +48,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         if(args.length < 1) return false;
         switch(args[0].toLowerCase()) {
             case "backup":
+            case "bk":
                 {
                     if(!checkCommandPermission(sender, "dropup.backup")) return true;
                     World world = null;
@@ -86,10 +65,11 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                         return true;
                     }
 
-                    backupWorld(world, true);
+                    worldUploader.backupWorld(world, true);
                     return true;
                 }
             case "restore":
+            case "re":
                 if(!checkCommandPermission(sender, "dropup.restore")) return true;
                 if(!hasMultiverse) {
                     sender.sendMessage("找不到Multiverse-Core，無法線上會回復");
@@ -97,9 +77,29 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                 }
                 return true;
             case "uploadspeed":
-                break;
+            case "us":
+                if(args.length <= 1) return false;
+                try {
+                    int speed = Integer.parseInt(args[1]);
+                    getConfig().set("upload_speed", speed);
+                    sender.sendMessage("上傳速度設為：" + (speed > 0 ? speed : "無限制"));
+                    worldUploader.setUploadSpeed(speed);
+                } catch(NumberFormatException e) {
+                    sender.sendMessage(args[1] + " 不是一個數字");
+                }
+                return true;
             case "downloadspeed":
-                break;
+            case "ds":
+                if(args.length <= 1) return false;
+                try {
+                    int speed = Integer.parseInt(args[1]);
+                    getConfig().set("download_speed", speed);
+                    sender.sendMessage("下載速度設為：" + (speed > 0 ? speed : "無限制"));
+                    worldUploader.setUploadSpeed(speed);
+                } catch(NumberFormatException e) {
+                    sender.sendMessage(args[1] + " 不是一個數字");
+                }
+                return true;
             case "disable":
                 if(!checkCommandPermission(sender, "dropup.disable")) return true;
                 if(args.length > 1) {
@@ -109,14 +109,14 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                     disabledReason = "None";
                 }
                 disabled = true;
-                sender.sendMessage("已暫停備份。原因： " + disabledReason);
+                sender.sendMessage("已暫停自動備份。原因： " + disabledReason);
                 disabledReason += " - " + sender.getName();
 
                 return true;
             case "enable":
                 if(!checkCommandPermission(sender, "dropup.disable")) return true;
                 disabled = false;
-                sender.sendMessage("已恢復備份");
+                sender.sendMessage("已恢復自動備份");
                 break;
             case "list":
                 break;
@@ -146,116 +146,23 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent eve) {
         if(eve.getMessage().startsWith("//")) {
-            backupWorldLater(eve.getPlayer().getLocation().getWorld());
+            worldUploader.backupWorldLater(eve.getPlayer().getLocation().getWorld());
         }
     }
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent eve) {
-        backupWorldLater(eve.getBlock().getLocation().getWorld());
+        worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
     }
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent eve) {
-        backupWorldLater(eve.getBlock().getLocation().getWorld());
+        worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
     }
 
     public void onDisable() {
-        // Execute all awaiting backups
-        for(UUID id : awaitBackups.keySet()) {
-            backupWorld(getServer().getWorld(id), false);
-        }
-
-        // Speed up and wait for world that are still uploading in background
-        for(LimitedOutputStream uploading : uploadingStreams) {
-            uploading.setRate(-1);
-        }
-        getLogger().info("Waiting for all uploads to finish");
-        while(uploadingStreams.size() > 0) {
-            try {
-                synchronized(lock) {
-                    lock.wait();
-                }
-            } catch(InterruptedException e) {}
-        }
-        getLogger().info("All uploads are finished");
-
+        if(worldUploader != null)
+            worldUploader.finishAllBackups();
         saveConfig();
-    }
-
-    private void backupWorldLater(World world) {
-        UUID id = world.getUID();
-        if(awaitBackups.containsKey(id)) return;
-
-        BukkitTask task = getServer().getScheduler().runTaskLater(this, () -> {
-            backupWorld(world, true);
-        }, getConfig().getInt("min_interval", 1800) * 20);
-
-        awaitBackups.put(id, task.getTaskId());
-    }
-
-    private void backupWorld(World world, boolean async) {
-        getServer().broadcastMessage(String.format("[§e%s§f] 正在備份 §a%s", getName(), world.getName()));
-
-        // Cancel awaiting backup task for this world if there's any
-        BukkitScheduler scheduler = getServer().getScheduler();
-        Integer backupTaskId = awaitBackups.remove(world.getUID());
-        if(backupTaskId != null && scheduler.isQueued(backupTaskId))
-            scheduler.cancelTask(backupTaskId);
-
-        // Save the world
-        world.save();
-
-        Consumer<BukkitTask> task = worker -> {
-            DropboxSession session;
-            try {
-                session = new DropboxSession(dbxClient);
-            } catch(DbxException e) {
-                getServer().broadcastMessage(String.format("[§e%s§f] Dropbox錯誤： §c%s", getName(), e.getMessage()));
-                e.printStackTrace();
-                return;
-            }
-
-            SplitOutputStream splitOut = new SplitOutputStream(session.out, 1024 * 10, offset -> {
-                try {
-                    session.nextSession(offset);
-                    return session.out;
-                } catch(DbxException e) {
-                    getServer().broadcastMessage(String.format("[§e%s§f] Dropbox錯誤： §c%s", getName(), e.getMessage()));
-                    e.printStackTrace();
-                }
-                return null; // And it triggers NullPointerException
-            });
-
-            // Put the stream object in map so it can be sped up later when needed
-            LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, getConfig().getInt("upload_rate", 1024));
-            uploadingStreams.add(limitedOut);
-
-            // Zip and upload
-            try {
-                File worldFolder = world.getWorldFolder();
-                FileUtil.zipFiles(limitedOut, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
-
-                // Finish Dropbox session
-                String uploadPath = String.format("%s/%s/%s.zip", getConfig().get("dropbox_path", "/backup"),
-                        world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
-                String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
-
-                getServer().broadcastMessage(String.format("[§e%s§f] §a%s§r 已備份到 %s", getName(), world.getName(), uploaded));
-            } catch(IOException | NullPointerException | DbxException e) {
-                getServer().broadcastMessage(String.format("[§e%s§f] 備份錯誤： §c%s", getName(), e.getMessage()));
-                e.printStackTrace();
-            }
-
-            uploadingStreams.remove(limitedOut);
-            synchronized(lock) {
-                lock.notify();
-            }
-        };
-
-        if(async)
-            getServer().getScheduler().runTaskAsynchronously(this, task);
-        else
-            task.accept(null);
     }
 }
