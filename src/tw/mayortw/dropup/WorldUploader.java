@@ -22,7 +22,6 @@ import org.bukkit.World;
 
 import com.dropbox.core.DbxException;
 import com.dropbox.core.v2.DbxClientV2;
-import com.dropbox.core.DbxRequestConfig;
 
 public class WorldUploader {
 
@@ -33,15 +32,9 @@ public class WorldUploader {
     private CopyOnWriteArrayList<LimitedOutputStream> uploadingStreams = new CopyOnWriteArrayList<>();
     private Object lock = new Object();
 
-    public WorldUploader(Plugin plugin) throws DbxException {
+    public WorldUploader(Plugin plugin, DbxClientV2 dbxClient) {
         this.plugin = plugin;
-
-        dbxClient = new DbxClientV2(
-                DbxRequestConfig.newBuilder("dropup/1.0")
-                .withAutoRetryEnabled()
-                .build(),
-                plugin.getConfig().getString("dropbox_token"));
-        Bukkit.getLogger().info("Logged in to Dropbox as " + dbxClient.users().getCurrentAccount().getName().getDisplayName());
+        this.dbxClient = dbxClient;
     }
 
     public void finishAllBackups() {

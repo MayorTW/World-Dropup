@@ -15,8 +15,16 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.World;
 
+import com.dropbox.core.DbxAppInfo;
+import com.dropbox.core.DbxException;
+import com.dropbox.core.DbxRequestConfig;
+import com.dropbox.core.DbxWebAuth;
+import com.dropbox.core.v2.DbxClientV2;
+
 public class DropupPlugin extends JavaPlugin implements Listener {
 
+    private DbxClientV2 dbxClient;
+    private DbxWebAuth dbxAuth;
     private WorldUploader worldUploader;
 
     private boolean hasMultiverse = true;
@@ -31,21 +39,52 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         }
 
         saveDefaultConfig();
-
-        try {
-            worldUploader = new WorldUploader(this);
-        } catch (com.dropbox.core.DbxException e) {
-            getLogger().severe("Dropbox login error: " + e.getMessage());
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-
+        dropboxSignIn();
         getServer().getPluginManager().registerEvents(this, this);
+
+        worldUploader = new WorldUploader(this, dbxClient);
+    }
+
+    private void dropboxSignIn() {
+        // The APP key is in Secret.java locally
+        DbxRequestConfig reqConfig = DbxRequestConfig.newBuilder("dropup/1.0")
+            .withAutoRetryEnabled() .build();
+        DbxAppInfo appInfo = new DbxAppInfo(Secret.APP_KEY, Secret.APP_SECRET);
+        dbxAuth = new DbxWebAuth(reqConfig, appInfo);
+        String token = getConfig().getString("dropbox_token");
+
+        if(token == null) {
+            getLogger().warning("Dropbox not signed in. Go to " + getAuthURL() + " to get the authorization code and type /dropup signin <code> to sign in");
+            disabled = true;
+            disabledReason = "Dropbox 未登入";
+        } else {
+            dbxClient = new DbxClientV2(reqConfig, token);
+            disabled = false;
+            getLogger().info("Logged in to Dropbox as " + getLoginName());
+        }
+    }
+
+    private String getAuthURL() {
+        return dbxAuth.authorize(DbxWebAuth.newRequestBuilder().withNoRedirect().build());
+    }
+
+    private String getLoginName() {
+        if(dbxClient == null) return "";
+        try {
+            return dbxClient.users().getCurrentAccount().getName().getDisplayName();
+        } catch (DbxException e) {
+            getLogger().warning("Error getting dropbox login information: " + e.getMessage());
+            return "";
+        }
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length < 1) return false;
+        if(!args[0].equalsIgnoreCase("signin")) {
+            sender.sendMessage("Dropbox 尚未登入，請用 /dropup signin 來登入");
+            return true;
+        }
         switch(args[0].toLowerCase()) {
             case "backup":
             case "bk":
@@ -121,6 +160,31 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             case "list":
                 break;
             case "book":
+                break;
+            case "signin":
+                if(!checkCommandPermission(sender, "dropup.signin")) return true;
+                if(args.length <= 1) {
+                    sender.sendMessage("請到 " + getAuthURL() + " 取得認証碼，然後用 /dropup signin <認証碼> 登入");
+                    return true;
+                }
+
+                try {
+                    getConfig().set("dropbox_token", dbxAuth.finishFromCode(args[1].trim()).getAccessToken());
+                } catch(DbxException e) {
+                    sender.sendMessage("認証碼有誤");
+                    return true;
+                }
+
+                if(!disabled) {
+                    sender.sendMessage("登入資訊已修改，重啟後會重新登入");
+                } else {
+                    dropboxSignIn();
+                    if(!disabled)
+                        sender.sendMessage("已登入到 " + getLoginName() + " 的Dropbox");
+                    else
+                        sender.sendMessage("無法登入 Dropbox");
+                }
+                return true;
             default:
                 return false;
         }

@@ -19,3 +19,12 @@ commands:
                 book
         aliases: ["du"]
         permissions: dropup.*
+permissions:
+    dropup.disable:
+        default: op
+    dropup.backup:
+        default: op
+    dropup.restore:
+        default: op
+    dropup.signin:
+        default: op

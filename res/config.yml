@@ -1,4 +1,3 @@
-dropbox_token: "TOKEN"
 dropbox_path: "/backup"
 upload_speed: 1024
 download_speed: 1024
