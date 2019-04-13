@@ -16,7 +16,7 @@ import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.files.UploadSessionCursor;
 import com.dropbox.core.v2.files.UploadSessionStartUploader;
 
-public class DropboxSession {
+public class DropboxUploadSession {
 
     public OutputStream out;
     public String sessionId;
@@ -24,7 +24,7 @@ public class DropboxSession {
     private DbxClientV2 dbxClient;
     private DbxUploader uploader;
 
-    public DropboxSession(DbxClientV2 dbxClient) throws DbxException {
+    public DropboxUploadSession(DbxClientV2 dbxClient) throws DbxException {
         this.dbxClient = dbxClient;
 
         doRetry(() -> {

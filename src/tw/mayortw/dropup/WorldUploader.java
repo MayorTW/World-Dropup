@@ -85,9 +85,9 @@ public class WorldUploader {
         world.save();
 
         Consumer<BukkitTask> task = worker -> {
-            DropboxSession session;
+            DropboxUploadSession session;
             try {
-                session = new DropboxSession(dbxClient);
+                session = new DropboxUploadSession(dbxClient);
             } catch(DbxException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§f] Dropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
                 e.printStackTrace();

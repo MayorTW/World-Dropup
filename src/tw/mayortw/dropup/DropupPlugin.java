@@ -18,10 +18,14 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.World;
 
+import com.onarandombox.MultiverseCore.api.MVPlugin;
+import com.onarandombox.MultiverseCore.api.MVWorldManager;
+
 import com.dropbox.core.DbxAppInfo;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.DbxWebAuth;
+import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.DbxClientV2;
 
 public class DropupPlugin extends JavaPlugin implements Listener {
@@ -29,16 +33,19 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     private DbxClientV2 dbxClient;
     private DbxWebAuth dbxAuth;
     private WorldUploader worldUploader;
+    private WorldDownloader worldDownloader;
+    private MVWorldManager mvWorldManager;
 
-    private boolean hasMultiverse = true;
     private boolean disabled = false;
     private String disabledReason;
 
     @Override
     public void onEnable() {
-        if(getServer().getPluginManager().getPlugin("Multiverse-Core") == null) {
+        MVPlugin mvPlugin = (MVPlugin) getServer().getPluginManager().getPlugin("Multiverse-Core");
+        if(mvPlugin == null) {
             getLogger().warning("Multiverse-Core not found or not enabled, won't be able to hot-restore");
-            hasMultiverse = false;
+        } else {
+            mvWorldManager = mvPlugin.getCore().getMVWorldManager();
         }
 
         saveDefaultConfig();
@@ -61,6 +68,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         } else {
             dbxClient = new DbxClientV2(reqConfig, token);
             worldUploader = new WorldUploader(this, dbxClient);
+            worldDownloader = new WorldDownloader(this, dbxClient);
             disabled = false;
             getLogger().info("Logged in to Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
         }
@@ -78,6 +86,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             getLogger().warning("Dropbox login error: " + e.getMessage());
             dbxClient = null;
             worldUploader = null;
+            worldDownloader = null;
             disabled = true;
             disabledReason = "Dropbox 登入錯誤";
             return "";
@@ -116,8 +125,8 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             case "restore":
             case "re":
                 if(!checkCommandPermission(sender, "dropup.restore")) return true;
-                if(!hasMultiverse) {
-                    sender.sendMessage("找不到Multiverse-Core，無法線上會回復");
+                if(mvWorldManager == null) {
+                    sender.sendMessage("找不到Multiverse-Core，無法在執行中回復");
                     return true;
                 }
                 return true;
@@ -164,6 +173,24 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                 sender.sendMessage("已恢復自動備份");
                 break;
             case "list":
+                if(args.length > 1) {
+                    World world = getServer().getWorld(args[1]);
+                    if(world == null) {
+                        sender.sendMessage("找不到世界");
+                        return true;
+                    }
+                    sender.sendMessage("備份列表：");
+                    for(FileMetadata meta : worldDownloader.listBackups(world)) {
+                        sender.sendMessage(meta.getName());
+                    }
+                    return true;
+                } else if(mvWorldManager != null) {
+                    sender.sendMessage("世界列表：");
+                    for(com.onarandombox.MultiverseCore.api.MultiverseWorld world : mvWorldManager.getMVWorlds()) {
+                        sender.sendMessage(world.getName());
+                    }
+                    return true;
+                }
                 break;
             case "book":
                 break;
