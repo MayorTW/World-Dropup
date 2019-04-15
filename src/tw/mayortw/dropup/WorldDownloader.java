@@ -32,6 +32,7 @@ public class WorldDownloader {
     private Plugin plugin;
     private DbxClientV2 dbxClient;
     private MVWorldManager mvWorldManager;
+    private Object lock = new Object();
 
     private ConcurrentHashMap<UUID, LimitedInputStream> downloadings = new ConcurrentHashMap<>();
 
@@ -58,6 +59,28 @@ public class WorldDownloader {
             }
         } catch(IOException e) {
             Bukkit.getLogger().warning("Cannot delete world download folder: " + e);
+        }
+    }
+
+    public void stopAllDownloads() {
+        Bukkit.getLogger().info("Stopping all downloads");
+
+        // Close the stream and wait
+        while(downloadings.size() > 0) {
+            for(LimitedInputStream downloading : downloadings.values()) {
+                try {
+                    downloading.close();
+                } catch(IOException e) {
+                    Bukkit.getLogger().warning("Cannot close input stream");
+                    e.printStackTrace();
+                }
+            }
+
+            try {
+                synchronized(lock) {
+                    lock.wait();
+                }
+            } catch(InterruptedException e) {}
         }
     }
 
@@ -153,15 +176,18 @@ public class WorldDownloader {
                     return null;
                 });
 
-                downloadings.remove(world.getUID());
             } catch(IOException | DbxException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§f] 回復錯誤： §c%s", plugin.getName(), e.getMessage()));
                 // Retries is handled already for download so don't need to do it
 
                 if(!(e instanceof DownloadErrorException)) {
                     Bukkit.getLogger().warning("Dropbox error when downloading " + dbxPath + ": " + e.getMessage());
-                    e.printStackTrace();
                 }
+            }
+
+            downloadings.remove(world.getUID());
+            synchronized(lock) {
+                lock.notify();
             }
         });
     }

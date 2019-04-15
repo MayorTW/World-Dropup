@@ -337,8 +337,10 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     public void onDisable() {
         if(worldUploader != null)
             worldUploader.finishAllBackups();
-        if(worldDownloader != null)
+        if(worldDownloader != null) {
+            worldDownloader.stopAllDownloads();
             worldDownloader.removeDownloadDir();
+        }
 
         saveConfig();
     }
