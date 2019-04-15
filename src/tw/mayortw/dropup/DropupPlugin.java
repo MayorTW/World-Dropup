@@ -68,7 +68,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         } else {
             dbxClient = new DbxClientV2(reqConfig, token);
             worldUploader = new WorldUploader(this, dbxClient);
-            worldDownloader = new WorldDownloader(this, dbxClient);
+            worldDownloader = new WorldDownloader(this, dbxClient, mvWorldManager);
             disabled = false;
             getLogger().info("Logged in to Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
         }
@@ -124,32 +124,88 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                 }
             case "restore":
             case "re":
-                if(!checkCommandPermission(sender, "dropup.restore")) return true;
-                if(mvWorldManager == null) {
-                    sender.sendMessage("找不到Multiverse-Core，無法在執行中回復");
+                {
+                    if(!checkCommandPermission(sender, "dropup.restore")) return true;
+                    if(mvWorldManager == null) {
+                        sender.sendMessage("找不到Multiverse-Core，無法在執行中回復");
+                        return true;
+                    }
+
+                    if(args.length <= 1) {
+                        sender.sendMessage("請指定一個世界");
+                        return true;
+                    }
+
+                    if(args.length <= 2) {
+                        sender.sendMessage("請指定一個備份");
+                        return true;
+                    }
+
+                    World world = getServer().getWorld(args[1]);
+                    if(world == null) {
+                        sender.sendMessage("找不到世界");
+                        return true;
+                    }
+
+                    // Check if there's player in the world
+                    List<Player> players = world.getPlayers();
+                    if(players.size() > 0) {
+                        if(players.size() <= 5) {
+                            sender.sendMessage("世界裡還有玩家： " +
+                                    players.stream()
+                                    .map(Player::getName)
+                                    .collect(java.util.stream.Collectors.joining(", ")));
+                        } else {
+                            sender.sendMessage("世界裡還有玩家");
+                        }
+                        return true;
+                    }
+
+                    // Check if backup exists
+                    String backup = args[2] + ".zip";
+                    if(!worldDownloader.listBackups(world).stream()
+                            .anyMatch(m -> m.getName().equals(args[2] + ".zip"))) {
+                        sender.sendMessage("找不到備份");
+                        return true;
+                            }
+
+                    // Cancel future backup, wait for current backup task
+                    worldUploader.stopBackupWorldLater(world);
+                    worldUploader.waitForBackup(world);
+
+                    // Now download and restore
+                    worldDownloader.restoreWorld(world, backup);
+
                     return true;
                 }
-                return true;
             case "uploadspeed":
             case "us":
-                if(args.length <= 1) return false;
+                if(args.length <= 1) {
+                    int speed = getConfig().getInt("upload_speed");
+                    sender.sendMessage("上傳速度：" + (speed > 0 ? speed : "無限制"));
+                    return true;
+                }
                 try {
                     int speed = Integer.parseInt(args[1]);
                     getConfig().set("upload_speed", speed);
-                    sender.sendMessage("上傳速度設為：" + (speed > 0 ? speed : "無限制"));
                     worldUploader.setUploadSpeed(speed);
+                    sender.sendMessage("上傳速度設為：" + (speed > 0 ? speed : "無限制"));
                 } catch(NumberFormatException e) {
                     sender.sendMessage(args[1] + " 不是一個數字");
                 }
                 return true;
             case "downloadspeed":
             case "ds":
-                if(args.length <= 1) return false;
+                if(args.length <= 1) {
+                    int speed = getConfig().getInt("download_speed");
+                    sender.sendMessage("下載速度：" + (speed > 0 ? speed : "無限制"));
+                    return true;
+                }
                 try {
                     int speed = Integer.parseInt(args[1]);
                     getConfig().set("download_speed", speed);
+                    worldDownloader.setDownloadSpeed(speed);
                     sender.sendMessage("下載速度設為：" + (speed > 0 ? speed : "無限制"));
-                    worldUploader.setUploadSpeed(speed);
                 } catch(NumberFormatException e) {
                     sender.sendMessage(args[1] + " 不是一個數字");
                 }
@@ -171,17 +227,30 @@ public class DropupPlugin extends JavaPlugin implements Listener {
                 if(!checkCommandPermission(sender, "dropup.disable")) return true;
                 disabled = false;
                 sender.sendMessage("已恢復自動備份");
-                break;
+                return true;
             case "list":
+            case "ls":
                 if(args.length > 1) {
                     World world = getServer().getWorld(args[1]);
                     if(world == null) {
                         sender.sendMessage("找不到世界");
                         return true;
                     }
+
+                    int counter = 10;
+                    if(args.length > 2) {
+                        try {
+                            counter = Integer.parseInt(args[2]);
+                        } catch(NumberFormatException e) {}
+                    }
+
                     sender.sendMessage("備份列表：");
                     for(FileMetadata meta : worldDownloader.listBackups(world)) {
                         sender.sendMessage(meta.getName());
+                        if(counter-- < 0) {
+                            sender.sendMessage("More...");
+                            break;
+                        }
                     }
                     return true;
                 } else if(mvWorldManager != null) {
@@ -243,23 +312,34 @@ public class DropupPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent eve) {
         if(eve.getMessage().startsWith("//")) {
+            // TODO only trigger on specific commands
             worldUploader.backupWorldLater(eve.getPlayer().getLocation().getWorld());
         }
     }
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent eve) {
+        // TODO checking if player undid themself
+        // Save the block at pos, then check it
+        // maybe in world uploader or here
         worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
     }
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent eve) {
+        // TODO checking if player undid themself
         worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
     }
+
+    // TODO InventoryMoveItemEvent
+    // TODO checking if player undid themself too
 
     public void onDisable() {
         if(worldUploader != null)
             worldUploader.finishAllBackups();
+        if(worldDownloader != null)
+            worldDownloader.removeDownloadDir();
+
         saveConfig();
     }
 }

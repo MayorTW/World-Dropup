@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -29,7 +29,7 @@ public class WorldUploader {
     private Plugin plugin;
 
     private HashMap<UUID, Integer> awaitBackups = new HashMap<>();
-    private CopyOnWriteArrayList<LimitedOutputStream> uploadingStreams = new CopyOnWriteArrayList<>();
+    private ConcurrentHashMap<UUID, LimitedOutputStream> uploadings = new ConcurrentHashMap<>();
     private Object lock = new Object();
 
     public WorldUploader(Plugin plugin, DbxClientV2 dbxClient) {
@@ -37,6 +37,7 @@ public class WorldUploader {
         this.dbxClient = dbxClient;
     }
 
+    // Speed up all auploads and wait
     public void finishAllBackups() {
         for(UUID id : awaitBackups.keySet()) {
             backupWorld(Bukkit.getWorld(id), false);
@@ -45,7 +46,7 @@ public class WorldUploader {
         // Speed up and wait for world that are still uploading in background
         setUploadSpeed(-1);
         Bukkit.getLogger().info("Waiting for all uploads to finish");
-        while(uploadingStreams.size() > 0) {
+        while(uploadings.size() > 0) {
             try {
                 synchronized(lock) {
                     lock.wait();
@@ -55,8 +56,20 @@ public class WorldUploader {
         Bukkit.getLogger().info("All uploads are finished");
     }
 
+    // Wait for a single world's backup to finish if any
+    // This doesn't speed up the upload speed
+    public void waitForBackup(World world) {
+        while(uploadings.containsKey(world.getUID())) {
+            try {
+                synchronized(lock) {
+                    lock.wait();
+                }
+            } catch(InterruptedException e) {}
+        }
+    }
+
     public void setUploadSpeed(int speed) {
-        for(LimitedOutputStream uploading : uploadingStreams) {
+        for(LimitedOutputStream uploading : uploadings.values()) {
             uploading.setRate(speed);
         }
     }
@@ -67,19 +80,23 @@ public class WorldUploader {
 
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             backupWorld(world, true);
-        }, plugin.getConfig().getInt("min_interval", 1800) * 20);
+        }, plugin.getConfig().getInt("min_interval") * 20);
 
         awaitBackups.put(id, task.getTaskId());
+    }
+
+    public void stopBackupWorldLater(World world) {
+        BukkitScheduler scheduler = Bukkit.getScheduler();
+        Integer backupTaskId = awaitBackups.remove(world.getUID());
+        if(backupTaskId != null && scheduler.isQueued(backupTaskId))
+            scheduler.cancelTask(backupTaskId);
     }
 
     public void backupWorld(World world, boolean async) {
         Bukkit.broadcastMessage(String.format("[§e%s§f] 正在備份 §a%s", plugin.getName(), world.getName()));
 
-        // Cancel awaiting backup task for this world if there's any
-        BukkitScheduler scheduler = Bukkit.getScheduler();
-        Integer backupTaskId = awaitBackups.remove(world.getUID());
-        if(backupTaskId != null && scheduler.isQueued(backupTaskId))
-            scheduler.cancelTask(backupTaskId);
+        // Cancel scheduled backup for this world if there's any
+        stopBackupWorldLater(world);
 
         // Save the world
         world.save();
@@ -106,8 +123,8 @@ public class WorldUploader {
             });
 
             // Put the stream object in map so it can be sped up later when needed
-            LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, plugin.getConfig().getInt("upload_speed", 1024));
-            uploadingStreams.add(limitedOut);
+            LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, plugin.getConfig().getInt("upload_speed"));
+            uploadings.put(world.getUID(), limitedOut);
 
             // Zip and upload
             try {
@@ -115,7 +132,7 @@ public class WorldUploader {
                 FileUtil.zipFiles(limitedOut, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
 
                 // Finish Dropbox session
-                String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path", "/backup"),
+                String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
                         world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
                 String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
 
@@ -125,7 +142,7 @@ public class WorldUploader {
                 e.printStackTrace();
             }
 
-            uploadingStreams.remove(limitedOut);
+            uploadings.remove(world.getUID());
             synchronized(lock) {
                 lock.notify();
             }

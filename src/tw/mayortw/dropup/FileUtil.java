@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -18,6 +19,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 public class FileUtil {
@@ -65,6 +67,28 @@ public class FileUtil {
             }
     }
 
+    public static void unzipFiles(InputStream in, Path dest) throws IOException {
+
+        ZipInputStream zipIn = new ZipInputStream(in);
+        ZipEntry entry;
+
+        while((entry = zipIn.getNextEntry()) != null) {
+
+            File file = dest.resolve(entry.getName()).toFile();
+            if(entry.isDirectory()) {
+                file.mkdir();
+            } else {
+                try(FileOutputStream out = new FileOutputStream(file)) {
+                    byte[] buff = new byte[1024];
+                    int readed; // yes I know past tense of read is read but this is better
+                    while((readed = zipIn.read(buff)) != -1) {
+                        out.write(buff, 0, readed);
+                    }
+                }
+            }
+        }
+    }
+
     public static void copyDirectory(File source, File target) {
         if (!target.exists()) {
             target.mkdir();
@@ -86,24 +110,19 @@ public class FileUtil {
         });
     }
 
-    public static void deleteDirectory(Path temp) {
-        try {
-            Files.walkFileTree(temp, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult postVisitDirectory(Path file, IOException exc) throws IOException {
-                    Files.delete(file);
-                    return FileVisitResult.CONTINUE;
-                }
+    public static void deleteDirectory(Path temp) throws IOException {
+        Files.walkFileTree(temp, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult postVisitDirectory(Path file, IOException exc) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
 
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            org.bukkit.Bukkit.broadcastMessage("§c[Dropup] 刪除暫存檔" + temp + "失敗");
-            e.printStackTrace();
-        }
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 }

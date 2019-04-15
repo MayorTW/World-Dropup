@@ -10,12 +10,12 @@ commands:
         usage: |
             Commands:
                 backup [world]
-                restore
-                uploadspeed <speed>
-                downloadspeed <speed>
+                restore <world> <backup>
+                uploadspeed [speed]
+                downloadspeed [speed]
                 disable [reason]
                 enable
-                list
+                list [world] [max display]
                 book
                 signin [code]
         aliases: ["du"]
