@@ -44,9 +44,9 @@ public class WorldUploader {
         }
 
         // Speed up and wait for world that are still uploading in background
-        setUploadSpeed(-1);
         Bukkit.getLogger().info("Waiting for all uploads to finish");
         while(uploadings.size() > 0) {
+            setUploadSpeed(-1);
             try {
                 synchronized(lock) {
                     lock.wait();
