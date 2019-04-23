@@ -5,6 +5,7 @@ description: "Back up worlds to Dropbox"
 author: "R26"
 softdepend:
     - Multiverse-Core
+    - WorldEdit
 commands:
     dropup:
         usage: |

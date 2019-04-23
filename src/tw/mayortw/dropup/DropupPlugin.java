@@ -6,16 +6,16 @@ package tw.mayortw.dropup;
 import java.util.Arrays;
 import java.util.List;
 
+import org.bukkit.block.BlockState;
 import org.bukkit.command.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.Location;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.World;
 
 import com.onarandombox.MultiverseCore.api.MVPlugin;
@@ -28,29 +28,38 @@ import com.dropbox.core.DbxWebAuth;
 import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.DbxClientV2;
 
-public class DropupPlugin extends JavaPlugin implements Listener {
+import com.sk89q.worldedit.WorldEdit;
+
+public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Callback {
 
     private DbxClientV2 dbxClient;
     private DbxWebAuth dbxAuth;
     private WorldUploader worldUploader;
     private WorldDownloader worldDownloader;
     private MVWorldManager mvWorldManager;
+    private BlockLogger blockLogger = new BlockLogger(this, this);
 
     private boolean disabled = false;
     private String disabledReason;
 
     @Override
     public void onEnable() {
-        MVPlugin mvPlugin = (MVPlugin) getServer().getPluginManager().getPlugin("Multiverse-Core");
-        if(mvPlugin == null) {
+        PluginManager pluginManager = getServer().getPluginManager();
+        // Multiverse load/unload support
+        MVPlugin mvPlugin = (MVPlugin) pluginManager.getPlugin("Multiverse-Core");
+        if(mvPlugin == null)
             getLogger().warning("Multiverse-Core not found or not enabled, won't be able to hot-restore");
-        } else {
+        else
             mvWorldManager = mvPlugin.getCore().getMVWorldManager();
-        }
+
+        // WorldEdit block change logging support
+        if(pluginManager.isPluginEnabled("WorldEdit"))
+            WorldEdit.getInstance().getEventBus().register(blockLogger);
 
         saveDefaultConfig();
         dropboxSignIn();
-        getServer().getPluginManager().registerEvents(this, this);
+        pluginManager.registerEvents(this, this);
+        pluginManager.registerEvents(blockLogger, this);
     }
 
     private void dropboxSignIn() {
@@ -67,7 +76,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             disabledReason = "Dropbox 未登入";
         } else {
             dbxClient = new DbxClientV2(reqConfig, token);
-            worldUploader = new WorldUploader(this, dbxClient);
+            worldUploader = new WorldUploader(this, dbxClient, w -> blockLogger.reset(w));
             worldDownloader = new WorldDownloader(this, dbxClient, mvWorldManager);
             disabled = false;
             getLogger().info("Logged in to Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
@@ -93,6 +102,7 @@ public class DropupPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    // TODO tab complete
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length < 1) return false;
@@ -309,30 +319,13 @@ public class DropupPlugin extends JavaPlugin implements Listener {
             eve.getPlayer().sendMessage(String.format("[§e%s§f] 自動備份已被暫停。原因： §b%s", getName(), disabledReason));
     }
 
-    @EventHandler
-    public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent eve) {
-        if(eve.getMessage().startsWith("//")) {
-            // TODO only trigger on specific commands
-            worldUploader.backupWorldLater(eve.getPlayer().getLocation().getWorld());
-        }
+    @Override
+    public void onWorldChanged(World world, int changeCount) {
+        if(changeCount > 0)
+            worldUploader.backupWorldLater(world);
+        else
+            worldUploader.stopBackupWorldLater(world);
     }
-
-    @EventHandler
-    public void onBlockBreak(BlockBreakEvent eve) {
-        // TODO checking if player undid themself
-        // Save the block at pos, then check it
-        // maybe in world uploader or here
-        worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
-    }
-
-    @EventHandler
-    public void onBlockPlace(BlockPlaceEvent eve) {
-        // TODO checking if player undid themself
-        worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
-    }
-
-    // TODO InventoryMoveItemEvent
-    // TODO checking if player undid themself too
 
     public void onDisable() {
         if(worldUploader != null)

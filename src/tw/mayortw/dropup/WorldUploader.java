@@ -27,14 +27,16 @@ public class WorldUploader {
 
     private DbxClientV2 dbxClient;
     private Plugin plugin;
+    private Callback cb;
 
     private HashMap<UUID, Integer> awaitBackups = new HashMap<>();
     private ConcurrentHashMap<UUID, LimitedOutputStream> uploadings = new ConcurrentHashMap<>();
     private Object lock = new Object();
 
-    public WorldUploader(Plugin plugin, DbxClientV2 dbxClient) {
+    public WorldUploader(Plugin plugin, DbxClientV2 dbxClient, Callback cb) {
         this.plugin = plugin;
         this.dbxClient = dbxClient;
+        this.cb = cb;
     }
 
     // Speed up all auploads and wait
@@ -94,6 +96,8 @@ public class WorldUploader {
 
     public void backupWorld(World world, boolean async) {
         Bukkit.broadcastMessage(String.format("[§e%s§f] 正在備份 §a%s", plugin.getName(), world.getName()));
+        if(cb != null)
+            cb.preWorldBackup(world);
 
         // Cancel scheduled backup for this world if there's any
         stopBackupWorldLater(world);
@@ -152,5 +156,9 @@ public class WorldUploader {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
         else
             task.accept(null);
+    }
+
+    public static interface Callback {
+        public void preWorldBackup(World world);
     }
 }
