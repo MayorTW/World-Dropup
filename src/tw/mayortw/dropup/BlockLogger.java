@@ -7,9 +7,12 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
+import org.bukkit.block.Sign;
 import org.bukkit.Bukkit;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.EventHandler;
 //import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.Listener;
@@ -69,22 +72,37 @@ public class BlockLogger implements Listener {
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent eve) {
-        //worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
-
-        BlockState oldBlock = eve.getBlock().getState();
-
-        // Get the new block after this method finish
-        // Then record the change
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            BlockState newBlock = eve.getBlock().getState();
-            update(newBlock.getLocation(), oldBlock, newBlock);
-        });
+        blockEventUpdate(eve);
     }
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent eve) {
-        //worldUploader.backupWorldLater(eve.getBlock().getLocation().getWorld());
         update(eve.getBlockPlaced().getLocation(), eve.getBlockReplacedState(), eve.getBlockPlaced().getState());
+    }
+
+    @EventHandler
+    public void onSignChange(SignChangeEvent eve) {
+        blockEventUpdate(eve);
+    }
+
+    @EventHandler
+    public void onPlayerBucketEmpty(PlayerBucketEmptyEvent eve) {
+        onPlayerBucket(eve);
+    }
+
+    @EventHandler
+    public void onPlayerBucketFill(PlayerBucketFillEvent eve) {
+        onPlayerBucket(eve);
+    }
+
+    public void onPlayerBucket(PlayerBucketEvent eve) {
+        BlockState oldBlock = eve.getBlockClicked().getRelative(eve.getBlockFace()).getState();
+        // Get the new block after this method finish
+        // Then record the change
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            BlockState newBlock = eve.getBlockClicked().getRelative(eve.getBlockFace()).getState();
+            update(newBlock.getLocation(), oldBlock, newBlock);
+        });
     }
 
     /*@EventHandler FIXME
@@ -105,22 +123,13 @@ public class BlockLogger implements Listener {
         return null;
     }*/
 
-    @EventHandler
-    public void onPlayerBucketEmpty(PlayerBucketEmptyEvent eve) {
-        onPlayerBucket(eve);
-    }
-
-    @EventHandler
-    public void onPlayerBucketFill(PlayerBucketFillEvent eve) {
-        onPlayerBucket(eve);
-    }
-
-    public void onPlayerBucket(PlayerBucketEvent eve) {
-        BlockState oldBlock = eve.getBlockClicked().getRelative(eve.getBlockFace()).getState();
+    // Updater for events that change block after the event call
+    private void blockEventUpdate(BlockEvent eve) {
+        BlockState oldBlock = eve.getBlock().getState();
         // Get the new block after this method finish
         // Then record the change
         Bukkit.getScheduler().runTask(plugin, () -> {
-            BlockState newBlock = eve.getBlockClicked().getRelative(eve.getBlockFace()).getState();
+            BlockState newBlock = eve.getBlock().getState();
             update(newBlock.getLocation(), oldBlock, newBlock);
         });
     }
@@ -172,11 +181,13 @@ public class BlockLogger implements Listener {
             }
         }
 
+        if((a instanceof Sign) && (b instanceof Sign)) {
+            if(!Arrays.equals(((Sign) a).getLines(), ((Sign) b).getLines()))
+                return false;
+        }
+
         return true;
-        // TODO
-        // inventory content
-        // sign content
-        // direction and stuff
+        // TODO inventory content
     }
 
     // Make air, flowing lava and flowing water empty blocks (treat them as the same)
