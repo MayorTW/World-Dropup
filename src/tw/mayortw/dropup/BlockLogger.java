@@ -14,7 +14,7 @@ import org.bukkit.event.block.BlockEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.EventHandler;
-//import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
@@ -72,7 +72,7 @@ public class BlockLogger implements Listener {
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent eve) {
-        blockEventUpdate(eve);
+        afterEventUpdate(eve);
     }
 
     @EventHandler
@@ -82,7 +82,7 @@ public class BlockLogger implements Listener {
 
     @EventHandler
     public void onSignChange(SignChangeEvent eve) {
-        blockEventUpdate(eve);
+        afterEventUpdate(eve);
     }
 
     @EventHandler
@@ -105,26 +105,8 @@ public class BlockLogger implements Listener {
         });
     }
 
-    /*@EventHandler FIXME
-    public void onInventoryMoveItem(InventoryMoveItemEvent eve) {
-        Container src = toContainer(eve.getSource()),
-                  des = toContainer(eve.getDestination());
-
-        if(src == null || des == null) return;
-
-        //update(src.getLocation(), src, des);
-    }
-
-    private Container toContainer(Inventory inv) {
-        InventoryHolder holder = inv.getHolder();
-        if(holder instanceof Container) {
-            return (Container) holder;
-        }
-        return null;
-    }*/
-
-    // Updater for events that change block after the event call
-    private void blockEventUpdate(BlockEvent eve) {
+    // Updater for events that changes block after the event call
+    private void afterEventUpdate(BlockEvent eve) {
         BlockState oldBlock = eve.getBlock().getState();
         // Get the new block after this method finish
         // Then record the change
@@ -134,8 +116,26 @@ public class BlockLogger implements Listener {
         });
     }
 
-    // TODO
-    // InventoryMoveItemEvent
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent eve) {
+        Container oldChest = toContainer(eve.getView().getTopInventory());
+        if(oldChest == null) return;
+
+        // Get the new block after this method finish
+        // Then record the change
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Container newChest = toContainer(eve.getView().getTopInventory());
+            if(newChest == null) return;
+            update(newChest.getLocation(), oldChest, newChest);
+        });
+    }
+
+    private Container toContainer(Inventory inv) {
+        InventoryHolder holder = inv.getHolder();
+        if(holder instanceof Container)
+            return (Container) holder;
+        return null;
+    }
 
     public void reset() {
         blocksChanged.clear();
@@ -151,14 +151,9 @@ public class BlockLogger implements Listener {
     }
 
     private void update(Location pos, BlockState oldBlock, BlockState newBlock) {
-        if(oldBlock instanceof Container) {
-            ItemStack[] aItems = ((Container) oldBlock).getInventory().getContents();
-            Bukkit.getLogger().info(Arrays.toString(aItems));
-        }
-
         if(!blocksChanged.containsKey(pos)) { // haven't changed, record the original block
-            if(!compareBlocks(oldBlock, newBlock))
-                blocksChanged.put(pos, oldBlock);
+            if(compareBlocks(oldBlock, newBlock)) return; // no change
+            blocksChanged.put(pos, oldBlock);
         } else if(compareBlocks(blocksChanged.get(pos), newBlock)) { // changed back, remove from map
             blocksChanged.remove(pos);
         }
@@ -174,11 +169,10 @@ public class BlockLogger implements Listener {
         if(!a.getBlockData().matches(b.getBlockData())) return false;
 
         if((a instanceof Container) && (b instanceof Container)) {
-            ItemStack[] aItems = ((Container) a).getInventory().getContents(),
-                bItems = ((Container) b).getInventory().getContents();
-            if(!Arrays.equals(aItems, bItems)) {
+            ItemStack[] aItems = ((Container) a).getSnapshotInventory().getContents(),
+                        bItems = ((Container) b).getSnapshotInventory().getContents();
+            if(!Arrays.equals(aItems, bItems))
                 return false;
-            }
         }
 
         if((a instanceof Sign) && (b instanceof Sign)) {
@@ -187,7 +181,6 @@ public class BlockLogger implements Listener {
         }
 
         return true;
-        // TODO inventory content
     }
 
     // Make air, flowing lava and flowing water empty blocks (treat them as the same)
