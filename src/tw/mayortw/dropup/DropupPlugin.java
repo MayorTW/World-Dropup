@@ -20,6 +20,7 @@ import org.bukkit.World;
 
 import com.onarandombox.MultiverseCore.api.MVPlugin;
 import com.onarandombox.MultiverseCore.api.MVWorldManager;
+import com.onarandombox.MultiverseCore.api.MultiverseWorld;
 
 import com.dropbox.core.DbxAppInfo;
 import com.dropbox.core.DbxException;
@@ -102,7 +103,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
         }
     }
 
-    // TODO tab complete
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length < 1) return false;
@@ -271,7 +271,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     return true;
                 }
                 break;
-            case "book":
+            case "menu":
+            case "me":
                 break;
             case "signin":
                 if(!checkCommandPermission(sender, "dropup.signin")) return true;
@@ -310,6 +311,41 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             return false;
         }
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
+        if(args.length == 1) {
+            return Arrays.asList(Arrays.stream(new String[] {
+                    "backup", "bk", "restore", "re",
+                    "uploadspeed", "us", "downloadspeed", "ds",
+                    "disable", "enable",
+                    "list", "ls", "menu", "me", "signin"
+            }).filter(s -> s.startsWith(args[0].toLowerCase())).toArray(String[]::new));
+        } else if(args.length == 2) {
+            switch(args[0].toLowerCase()) {
+                case "backup":  case "bk":
+                case "restore": case "re":
+                case "list":    case "ls":
+                case "menu":    case "me":
+                    return Arrays.asList(mvWorldManager.getMVWorlds().stream().map(MultiverseWorld::getName)
+                            .filter(s -> s.startsWith(args[1])).toArray(String[]::new));
+            }
+        } else if(args.length == 3) {
+            switch(args[0].toLowerCase()) {
+                case "restore": case "re":
+                    World world = getServer().getWorld(args[1]);
+                    if(world != null) {
+                        return Arrays.asList(worldDownloader.listBackups(world).stream()
+                                .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                .filter(s -> s.startsWith(args[2]))
+                                .toArray(String[]::new));
+                    }
+            }
+        }
+
+        getLogger().info("Nulling");
+        return null;
     }
 
     @EventHandler

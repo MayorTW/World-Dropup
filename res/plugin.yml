@@ -10,14 +10,14 @@ commands:
     dropup:
         usage: |
             Commands:
-                backup [world]
-                restore <world> <backup>
-                uploadspeed [speed]
-                downloadspeed [speed]
+                backup|bk [world]
+                restore|re <world> <backup>
+                uploadspeed|us [speed]
+                downloadspeed|ds [speed]
                 disable [reason]
                 enable
-                list [world] [max display]
-                book
+                list|ls [world] [max display]
+                menu|me
                 signin [code]
         aliases: ["du"]
         permissions: dropup.*
