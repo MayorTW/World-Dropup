@@ -1,4 +1,4 @@
-package tw.mayortw.dropup;
+package tw.mayortw.dropup.util;
 /*
  * Written by R26
  */
@@ -41,7 +41,7 @@ public class SplitOutputStream extends FilterOutputStream {
         written++;
     }
 
-    static interface Callback {
+    public static interface Callback {
         public OutputStream next(int offset);
     }
 }
