@@ -240,6 +240,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 return true;
             case "list":
             case "ls":
+                if(!checkCommandPermission(sender, "dropup.list")) return true;
                 if(args.length > 1) {
                     World world = getServer().getWorld(args[1]);
                     if(world == null) {
