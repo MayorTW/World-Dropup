@@ -264,7 +264,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             sender.sendMessage("More...");
                             break;
                         }
-                        sender.sendMessage(meta.getName());
+                        sender.sendMessage(meta.getName().replaceAll("\\.[^.]*$", ""));
                     }
                     return true;
                 } else if(mvWorldManager != null) {
