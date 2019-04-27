@@ -1,12 +1,15 @@
 package tw.mayortw.dropup.util;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.Material;
 
 import tw.mayortw.dropup.util.ReflectionUtils.PackageType;
 
@@ -95,5 +98,26 @@ public class BookUtil {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static ItemStack createBook(List<String> content) {
+        List<String> pages = new ArrayList<>();
+        LinkedList<String> lines = new LinkedList<>(content);
+
+        while(lines.size() > 0) {
+            String page = "[\"\",";
+            for(int i = 0; i < 14 && lines.size() > 0; i++) { // max 14 lines per page
+                page += lines.removeFirst() + ",";
+            }
+            page = page.substring(0, page.length()-1) + "]";
+            pages.add(page);
+            if(pages.size() >= 50) break; // max 50 pages
+        }
+
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        BookMeta meta = (BookMeta) book.getItemMeta();
+        BookUtil.setPages(meta, pages);
+        book.setItemMeta(meta);
+        return book;
     }
 }

@@ -3,6 +3,7 @@ package tw.mayortw.dropup;
  * Written by R26
  */
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,6 +31,8 @@ import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.DbxClientV2;
 
 import com.sk89q.worldedit.WorldEdit;
+
+import tw.mayortw.dropup.util.BookUtil;
 
 public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Callback {
 
@@ -274,7 +277,58 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 break;
             case "menu":
             case "me":
-                break;
+                if(!checkCommandPermission(sender, "dropup.list")) return true;
+                if(sender instanceof Player) {
+                    if(args.length <= 1) {
+                        BookUtil.openBook(BookUtil.createBook(
+                            Arrays.asList(mvWorldManager.getMVWorlds().stream()
+                                .map(w -> {
+                                    //String alias = w.getAlias();
+                                    String name = w.getName();
+                                    String alias = org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(w.getAlias());
+                                    return String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", alias, name);
+                                })
+                                .sorted()
+                                .toArray(String[]::new))),
+                            (Player) sender);
+                    } else {
+                        World world = getServer().getWorld(args[1]);
+                        if(world == null) {
+                            sender.sendMessage("找不到世界");
+                            return true;
+                        }
+
+                        ArrayList<String> lines = new ArrayList<>();
+
+                        lines.add("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me\"}}");
+
+                        if(sender.hasPermission("dropup.backup"))
+                            lines.add(String.format("{\"text\":\"立刻備份\\n\",\"color\":\"dark_green\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du bk %s\"}}", world.getName()));
+
+                        if(sender.hasPermission("dropup.restore")) {
+                            lines.add("{\"text\":\"回復:\\n\",\"color\":\"blue\",\"bold\":true}");
+                            worldDownloader.listBackups(world).stream()
+                                .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du re %s %s\"}}", s, world.getName(), s))
+                                .sorted()
+                                .forEachOrdered(lines::add);
+                        } else if(sender.hasPermission("dropup.list")) {
+                            lines.add("{\"text\":\"備份列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
+                            worldDownloader.listBackups(world).stream()
+                                .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
+                                .sorted()
+                                .forEachOrdered(lines::add);
+                        } else {
+                            lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
+                        }
+
+                        BookUtil.openBook(BookUtil.createBook(lines), (Player) sender);
+                    }
+                } else {
+                    sender.sendMessage("Only player can do this");
+                }
+                return true;
             case "signin":
                 if(!checkCommandPermission(sender, "dropup.signin")) return true;
                 if(args.length <= 1) {
