@@ -122,15 +122,15 @@ public class WorldDownloader {
     public void restoreWorld(World world, String backupFile) {
         // Unload the world first
         if(mvWorldManager.unloadWorld(world.getName(), true)) {
-            Bukkit.broadcastMessage(String.format("[§e%s§f] 已卸載世界 §a%s§r，回復完成前請不要加載", plugin.getName(), world.getName()));
+            Bukkit.broadcastMessage(String.format("[§e%s] §f已卸載世界 §a%s§f，回復完成前請不要加載", plugin.getName(), world.getName()));
         } else {
-            Bukkit.broadcastMessage(String.format("[§e%s§f] 無法卸載世界 §a%s", plugin.getName(), world.getName()));
+            Bukkit.broadcastMessage(String.format("[§e%s] §f無法卸載世界 §a%s", plugin.getName(), world.getName()));
             return;
         }
 
         // Run in async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Bukkit.broadcastMessage(String.format("[§e%s§f] 正在回復 §a%s", plugin.getName(), world.getName()));
+            Bukkit.broadcastMessage(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
 
             String dbxPath = String.format("%s/%s/%s",
                     plugin.getConfig().getString("dropbox_path"),
@@ -172,14 +172,14 @@ public class WorldDownloader {
 
                 Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                     if(mvWorldManager.loadWorld(world.getName()))
-                        Bukkit.broadcastMessage(String.format("[§e%s§f] 已從 §a%s§r 回復 §a%s§r", plugin.getName(), dbxPath, world.getName()));
+                        Bukkit.broadcastMessage(String.format("[§e%s] §f已從 §a%s §f回復 §a%s", plugin.getName(), dbxPath, world.getName()));
                     else
-                        Bukkit.broadcastMessage(String.format("[§e%s§f] 世界 §a%s§r 已下載，但無法載入", plugin.getName(), world.getName()));
+                        Bukkit.broadcastMessage(String.format("[§e%s] §f世界 §a%s §f已下載，但無法載入", plugin.getName(), world.getName()));
                     return null;
                 });
 
             } catch(IOException | DbxException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s§f] 回復錯誤： §c%s", plugin.getName(), e.getMessage()));
+                Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
                 // Retries is handled already for download so don't need to do it
 
                 if(!(e instanceof DownloadErrorException)) {
