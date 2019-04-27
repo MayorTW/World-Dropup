@@ -142,11 +142,7 @@ public class BlockLogger implements Listener {
     }
 
     public void reset(World world) {
-        for(Location pos : blocksChanged.keySet()) {
-            if(pos.getWorld().equals(world)) {
-                blocksChanged.remove(pos);
-            }
-        }
+        blocksChanged.keySet().removeIf(p -> p.getWorld().equals(world));
         cb.onWorldChanged(world, (int) blocksChanged.keySet().stream().filter(pos -> pos.getWorld().equals(world)).count());
     }
 
