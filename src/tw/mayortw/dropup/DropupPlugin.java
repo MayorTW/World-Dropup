@@ -260,11 +260,11 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                     sender.sendMessage("備份列表：");
                     for(FileMetadata meta : worldDownloader.listBackups(world)) {
-                        sender.sendMessage(meta.getName());
-                        if(counter-- < 0) {
+                        if(--counter < 0) {
                             sender.sendMessage("More...");
                             break;
                         }
+                        sender.sendMessage(meta.getName());
                     }
                     return true;
                 } else if(mvWorldManager != null) {
