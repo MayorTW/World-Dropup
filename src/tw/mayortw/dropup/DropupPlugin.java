@@ -308,7 +308,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
     private boolean checkCommandPermission(CommandSender sender, String perm) {
         if(!sender.hasPermission(perm)) {
-            sender.sendMessage("你沒有權限做這件事");
+            sender.sendMessage("你沒有權限做這件事。需要 " + perm);
             return false;
         }
         return true;
@@ -329,7 +329,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 case "restore": case "re":
                 case "list":    case "ls":
                 case "menu":    case "me":
-                    if(!sender.hasPermission("multiverse.core.list.worlds")) break;
+                    if(!sender.hasPermission("dropup.list")) break;
                     return Arrays.asList(mvWorldManager.getMVWorlds().stream().map(MultiverseWorld::getName)
                             .filter(s -> s.startsWith(args[1])).toArray(String[]::new));
             }

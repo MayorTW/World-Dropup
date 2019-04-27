@@ -21,17 +21,24 @@ commands:
                 menu|me
                 signin [code]
         aliases: ["du"]
-        permissions: dropup.use
+        permissions: dropup.*
 permissions:
-    dropup.use:
-        default: op
     dropup.disable:
         default: op
     dropup.backup:
         default: op
     dropup.restore:
         default: op
+        children:
+            dropup.list: true
     dropup.list:
         default: op
     dropup.signin:
         default: op
+    dropup.*:
+        default: op
+        children:
+            dropup.disable: true
+            dropup.backup: true
+            dropup.restore: true
+            dropup.signin: true
