@@ -106,7 +106,7 @@ public class BookUtil {
 
         while(lines.size() > 0) {
             String page = "[\"\",";
-            for(int i = 0; i < 14 && lines.size() > 0; i++) { // max 14 lines per page
+            for(int i = 0; i < 12 && lines.size() > 0; i++) { // max 12 lines per page
                 page += lines.removeFirst() + ",";
             }
             page = page.substring(0, page.length()-1) + "]";

@@ -282,10 +282,16 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     if(args.length <= 1) {
                         BookUtil.openBook(BookUtil.createBook(
                             Arrays.asList(mvWorldManager.getMVWorlds().stream()
-                                .map(w -> {
-                                    //String alias = w.getAlias();
-                                    String name = w.getName();
-                                    String alias = org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(w.getAlias());
+                                .map(world -> {
+                                    String name = world.getName();
+                                    String alias = world.getAlias();
+
+                                    final int maxLength = 12;
+                                    if(alias.length() > maxLength) {
+                                        alias = alias.substring(0, maxLength - 6) + "…" + alias.substring(alias.length() - 6);
+                                    }
+                                    alias = org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(alias);
+
                                     return String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", alias, name);
                                 })
                                 .sorted()
