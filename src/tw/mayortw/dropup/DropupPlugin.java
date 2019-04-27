@@ -329,12 +329,14 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 case "restore": case "re":
                 case "list":    case "ls":
                 case "menu":    case "me":
+                    if(!sender.hasPermission("multiverse.core.list.worlds")) break;
                     return Arrays.asList(mvWorldManager.getMVWorlds().stream().map(MultiverseWorld::getName)
                             .filter(s -> s.startsWith(args[1])).toArray(String[]::new));
             }
         } else if(args.length == 3) {
             switch(args[0].toLowerCase()) {
                 case "restore": case "re":
+                    if(!sender.hasPermission("dropup.restore") || !sender.hasPermission("dropup.list")) break;
                     World world = getServer().getWorld(args[1]);
                     if(world != null) {
                         return Arrays.asList(worldDownloader.listBackups(world).stream()
@@ -345,7 +347,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             }
         }
 
-        getLogger().info("Nulling");
         return null;
     }
 
