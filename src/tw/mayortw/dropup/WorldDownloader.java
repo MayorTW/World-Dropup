@@ -60,12 +60,12 @@ public class WorldDownloader {
                 Files.deleteIfExists(downloadDir);
             }
         } catch(IOException e) {
-            Bukkit.getLogger().warning("Cannot delete world download folder: " + e);
+            plugin.getLogger().warning("Cannot delete world download folder: " + e);
         }
     }
 
     public void stopAllDownloads() {
-        Bukkit.getLogger().info("Stopping all downloads");
+        plugin.getLogger().info("Stopping all downloads");
 
         // Close the stream and wait
         while(downloadings.size() > 0) {
@@ -73,7 +73,7 @@ public class WorldDownloader {
                 try {
                     downloading.close();
                 } catch(IOException e) {
-                    Bukkit.getLogger().warning("Cannot close input stream");
+                    plugin.getLogger().warning("Cannot close input stream");
                     e.printStackTrace();
                 }
             }
@@ -112,7 +112,7 @@ public class WorldDownloader {
             }
         } catch(ListFolderErrorException e) {
         } catch(DbxException e) {
-            Bukkit.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
+            plugin.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
         }
 
         return rst;
@@ -183,7 +183,7 @@ public class WorldDownloader {
                 // Retries is handled already for download so don't need to do it
 
                 if(!(e instanceof DownloadErrorException)) {
-                    Bukkit.getLogger().warning("Dropbox error when downloading " + dbxPath + ": " + e.getMessage());
+                    plugin.getLogger().warning("Dropbox error when downloading " + dbxPath + ": " + e.getMessage());
                 }
             }
 

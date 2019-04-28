@@ -76,14 +76,11 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
         if(token == null) {
             getLogger().warning("Dropbox not signed in. Go to " + getAuthURL() + " to get the authorization code and type /dropup signin <code> to sign in");
-            disabled = true;
-            disabledReason = "Dropbox 未登入";
+            loginFailed();
         } else {
             dbxClient = new DbxClientV2(reqConfig, token);
-            worldUploader = new WorldUploader(this, dbxClient, w -> blockLogger.reset(w));
-            worldDownloader = new WorldDownloader(this, dbxClient, mvWorldManager);
-            disabled = false;
             getLogger().info("Logged in to Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
+            loginSuccess();
         }
     }
 
@@ -97,13 +94,23 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             return dbxClient.users().getCurrentAccount().getName().getDisplayName();
         } catch (DbxException e) {
             getLogger().warning("Dropbox login error: " + e.getMessage());
-            dbxClient = null;
-            worldUploader = null;
-            worldDownloader = null;
-            disabled = true;
-            disabledReason = "Dropbox 登入錯誤";
+            loginFailed();
             return "";
         }
+    }
+
+    private void loginFailed() {
+        dbxClient = null;
+        worldUploader = null;
+        worldDownloader = null;
+        disabled = true;
+        disabledReason = "Dropbox 登入錯誤";
+    }
+
+    private void loginSuccess() {
+        worldUploader = new WorldUploader(this, dbxClient, blockLogger::reset);
+        worldDownloader = new WorldDownloader(this, dbxClient, mvWorldManager);
+        disabled = false;
     }
 
     @Override
@@ -127,12 +134,20 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         sender.sendMessage("你沒有在一個世界，請指定一個");
                         return true;
                     }
-                    if(world == null) {
+                    if(world == null)
                         sender.sendMessage("找不到世界");
-                        return true;
+                    else
+                        worldUploader.backupWorld(world);
+                    return true;
+                }
+            case "backupall":
+            case "bkall":
+                {
+                    if(!checkCommandPermission(sender, "dropup.backup")) return true;
+                    sender.sendMessage("開始備份所有世界");
+                    for(World world : getServer().getWorlds()) {
+                        worldUploader.backupWorld(world);
                     }
-
-                    worldUploader.backupWorld(world, true);
                     return true;
                 }
             case "restore":
@@ -184,6 +199,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                     // Cancel future backup, wait for current backup task
                     worldUploader.stopBackupWorldLater(world);
+                    sender.sendMessage("正在等待上傳");
                     worldUploader.waitForBackup(world);
 
                     // Now download and restore
@@ -414,7 +430,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
     public void onPlayerJoin(PlayerJoinEvent eve) {
         Player player = eve.getPlayer();
         if(disabled && player.hasPermission("dropup.disable"))
-            eve.getPlayer().sendMessage(String.format("[§e%s§f] 自動備份已被暫停。原因： §b%s", getName(), disabledReason));
+            eve.getPlayer().sendMessage(String.format("[§e%s§r] §f自動備份已被暫停。原因： §b%s", getName(), disabledReason));
     }
 
     @Override
@@ -426,8 +442,10 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
     }
 
     public void onDisable() {
-        if(worldUploader != null)
+        if(worldUploader != null) {
             worldUploader.finishAllBackups();
+            worldUploader.stopWorker();
+        }
         if(worldDownloader != null) {
             worldDownloader.stopAllDownloads();
             worldDownloader.removeDownloadDir();

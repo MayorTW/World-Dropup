@@ -12,6 +12,7 @@ commands:
         usage: |
             Commands:
                 backup|bk [world]
+                backupall|bkall
                 restore|re <world> <backup>
                 uploadspeed|us [speed]
                 downloadspeed|ds [speed]
