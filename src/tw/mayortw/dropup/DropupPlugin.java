@@ -58,8 +58,10 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             mvWorldManager = mvPlugin.getCore().getMVWorldManager();
 
         // WorldEdit block change logging support
-        if(pluginManager.isPluginEnabled("WorldEdit"))
+        if(pluginManager.isPluginEnabled("WorldEdit")) {
+            getLogger().info("Registering WorldEdit event");
             WorldEdit.getInstance().getEventBus().register(blockLogger);
+        }
 
         saveDefaultConfig();
         dropboxSignIn();
@@ -151,6 +153,22 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     }
                     return true;
                 }
+            case "backuptime":
+            case "bktime":
+                if(!checkCommandPermission(sender, "dropup.setting")) return true;
+                if(args.length <= 1) {
+                    int time = getConfig().getInt("min_interval");
+                    sender.sendMessage("最快自動備份時間： " + time + "秒");
+                    return true;
+                }
+                try {
+                    int time = Integer.parseInt(args[1]);
+                    getConfig().set("min_interval", time);
+                    sender.sendMessage("最快自動備份時間設為： " + time + "秒");
+                } catch(NumberFormatException e) {
+                    sender.sendMessage(args[1] + " 不是一個數字");
+                }
+                return true;
             case "restore":
             case "re":
                 {
@@ -210,22 +228,24 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 }
             case "uploadspeed":
             case "us":
+                if(!checkCommandPermission(sender, "dropup.setting")) return true;
                 if(args.length <= 1) {
                     int speed = getConfig().getInt("upload_speed");
-                    sender.sendMessage("上傳速度：" + (speed > 0 ? speed : "無限制"));
+                    sender.sendMessage("上傳速度： " + (speed > 0 ? speed + "kb/s" : "無限制"));
                     return true;
                 }
                 try {
                     int speed = Integer.parseInt(args[1]);
                     getConfig().set("upload_speed", speed);
                     worldUploader.setUploadSpeed(speed);
-                    sender.sendMessage("上傳速度設為：" + (speed > 0 ? speed : "無限制"));
+                    sender.sendMessage("上傳速度設為： " + (speed > 0 ? speed + "kb/s" : "無限制"));
                 } catch(NumberFormatException e) {
                     sender.sendMessage(args[1] + " 不是一個數字");
                 }
                 return true;
             case "downloadspeed":
             case "ds":
+                if(!checkCommandPermission(sender, "dropup.setting")) return true;
                 if(args.length <= 1) {
                     int speed = getConfig().getInt("download_speed");
                     sender.sendMessage("下載速度：" + (speed > 0 ? speed : "無限制"));
@@ -296,7 +316,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "me":
                 if(!checkCommandPermission(sender, "dropup.list")) return true;
                 if(sender instanceof Player) {
-                    if(args.length <= 1) {
+                    if(args.length <= 1 && mvWorldManager != null) {
                         BookUtil.openBook(BookUtil.createBook(
                             Arrays.asList(mvWorldManager.getMVWorlds().stream()
                                 .map(world -> {
@@ -401,14 +421,16 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     "list", "ls", "menu", "me", "signin"
             }).filter(s -> s.startsWith(args[0].toLowerCase())).toArray(String[]::new));
         } else if(args.length == 2) {
-            switch(args[0].toLowerCase()) {
-                case "backup":  case "bk":
-                case "restore": case "re":
-                case "list":    case "ls":
-                case "menu":    case "me":
-                    if(!sender.hasPermission("dropup.list")) break;
-                    return Arrays.asList(mvWorldManager.getMVWorlds().stream().map(MultiverseWorld::getName)
-                            .filter(s -> s.startsWith(args[1])).toArray(String[]::new));
+            if(mvWorldManager != null) {
+                switch(args[0].toLowerCase()) {
+                    case "backup":  case "bk":
+                    case "restore": case "re":
+                    case "list":    case "ls":
+                    case "menu":    case "me":
+                        if(!sender.hasPermission("dropup.list")) break;
+                        return Arrays.asList(mvWorldManager.getMVWorlds().stream().map(MultiverseWorld::getName)
+                                .filter(s -> s.startsWith(args[1])).toArray(String[]::new));
+                }
             }
         } else if(args.length == 3) {
             switch(args[0].toLowerCase()) {

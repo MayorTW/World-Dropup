@@ -13,6 +13,7 @@ commands:
             Commands:
                 backup|bk [world]
                 backupall|bkall
+                backuptime|bktime [time]
                 restore|re <world> <backup>
                 uploadspeed|us [speed]
                 downloadspeed|ds [speed]
@@ -34,6 +35,8 @@ permissions:
             dropup.list: true
     dropup.list:
         default: op
+    dropup.setting:
+        default: op
     dropup.signin:
         default: op
     dropup.*:
@@ -42,4 +45,6 @@ permissions:
             dropup.disable: true
             dropup.backup: true
             dropup.restore: true
+            dropup.list: true
+            dropup.setting: true
             dropup.signin: true
