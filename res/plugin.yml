@@ -1,6 +1,6 @@
 name: "World-Dropup"
 main: tw.mayortw.dropup.DropupPlugin
-version: 0.2
+version: 0.3
 description: "Back up worlds to Dropbox"
 author: "R26"
 api-version: 1.13
@@ -11,16 +11,16 @@ commands:
     dropup:
         usage: |
             Commands:
-                backup|bk [world]
-                backupall|bkall
-                backuptime|bktime [time]
-                restore|re <world> <backup>
-                uploadspeed|us [speed]
-                downloadspeed|ds [speed]
+                backup | bk [world]
+                backupall | bkall
+                backuptime | bktime [time]
+                restore | re <world> <backup>
+                uploadspeed | us [speed]
+                downloadspeed | ds [speed]
                 disable [reason]
                 enable
-                list|ls [world] [max display]
-                menu|me
+                list | ls [world] [max display]
+                menu | me
                 signin [code]
         aliases: ["du"]
         permissions: dropup.*
