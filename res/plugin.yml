@@ -23,7 +23,6 @@ commands:
                 menu | me
                 signin [code]
         aliases: ["du"]
-        permissions: dropup.*
 permissions:
     dropup.disable:
         default: op

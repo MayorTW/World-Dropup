@@ -82,8 +82,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             loginFailed();
         } else {
             dbxClient = new DbxClientV2(reqConfig, token);
-            getLogger().info("Logged in to Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
             loginSuccess();
+            getLogger().info("Logged into Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
         }
     }
 
@@ -96,8 +96,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
         try {
             return dbxClient.users().getCurrentAccount().getName().getDisplayName();
         } catch (DbxException e) {
-            getLogger().warning("Dropbox login error: " + e.getMessage());
             loginFailed();
+            getLogger().warning("Dropbox login error: " + e.getMessage());
             return "";
         }
     }

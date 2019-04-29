@@ -150,7 +150,7 @@ public class WorldUploader implements Runnable {
                 uploading = new UploadInfo(awaiting.take(), null);
                 world = uploading.world;
             } catch(InterruptedException e) {
-                continue;
+                break;
             }
 
             // Do stuff that needs to be done in main thread
@@ -217,7 +217,7 @@ public class WorldUploader implements Runnable {
                 this.notifyAll();
             }
         }
-        plugin.getLogger().info("Worker thread stopped");
+        plugin.getLogger().info("Backup worker thread stopped");
     }
 
     public static interface Callback {
