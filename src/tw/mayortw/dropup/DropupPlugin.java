@@ -200,7 +200,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                     // Cancel future backup, wait for current backup task
                     worldUploader.stopBackupWorldLater(world);
-                    sender.sendMessage("正在等待上傳");
+                    sender.sendMessage("正在等待上傳（如果有的話）");
                     worldUploader.waitForBackup(world);
 
                     // Now download and restore
@@ -349,7 +349,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         BookUtil.openBook(BookUtil.createBook(lines), (Player) sender);
                     }
                 } else {
-                    sender.sendMessage("Only player can do this");
+                    sender.sendMessage("只有玩家才能使用");
                 }
                 return true;
             case "signin":
