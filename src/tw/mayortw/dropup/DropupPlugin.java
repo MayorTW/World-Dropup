@@ -5,6 +5,7 @@ package tw.mayortw.dropup;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.bukkit.block.BlockState;
@@ -332,14 +333,14 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             worldDownloader.listBackups(world).stream()
                                 .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
                                 .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du re %s %s\"}}", s, world.getName(), s))
-                                .sorted()
+                                .sorted(Collections.reverseOrder())
                                 .forEachOrdered(lines::add);
                         } else if(sender.hasPermission("dropup.list")) {
                             lines.add("{\"text\":\"備份列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
                             worldDownloader.listBackups(world).stream()
                                 .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
                                 .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
-                                .sorted()
+                                .sorted(Collections.reverseOrder())
                                 .forEachOrdered(lines::add);
                         } else {
                             lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
