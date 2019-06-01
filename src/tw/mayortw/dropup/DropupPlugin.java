@@ -137,10 +137,12 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         sender.sendMessage("你沒有在一個世界，請指定一個");
                         return true;
                     }
-                    if(world == null)
+                    if(world == null) {
                         sender.sendMessage("找不到世界");
-                    else
+                    } else {
+                        sender.sendMessage("準備備份" + world.getName());
                         worldUploader.backupWorld(world);
+                    }
                     return true;
                 }
             case "backupall":
@@ -216,13 +218,19 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         return true;
                             }
 
-                    // Cancel future backup, wait for current backup task
+                    // Cancel future backup
                     worldUploader.stopBackupWorldLater(world);
-                    sender.sendMessage("正在等待上傳（如果有的話）");
-                    worldUploader.waitForBackup(world);
 
-                    // Now download and restore
-                    worldDownloader.restoreWorld(world, backup);
+                    // wait for current backup task the restore
+                    getServer().getScheduler().runTaskAsynchronously(this, () -> {
+                        sender.sendMessage("正在等待上傳完成（如果有的話）");
+                        worldUploader.waitForBackup(world);
+
+                        // Now download and restore
+                        getServer().getScheduler().runTask(this, () -> {
+                            worldDownloader.restoreWorld(world, backup);
+                        });
+                    });
 
                     return true;
                 }

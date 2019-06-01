@@ -72,9 +72,10 @@ public class WorldUploader implements Runnable {
      * Wait for all backups to finish
      */
     public void waitForAllBackups() {
-        while(awaiting.size() > 0 || uploading != null) {
+        while(true) {
             try {
                 synchronized(this) {
+                    if(awaiting.size() == 0 && uploading == null) break;
                     this.wait();
                 }
             } catch(InterruptedException e) {}
@@ -85,10 +86,11 @@ public class WorldUploader implements Runnable {
      * Wait for a single world's backup to finish
      */
     public void waitForBackup(World world) {
-        while(awaiting.contains(world) || uploading != null && uploading.world.equals(world)) {
-            plugin.getLogger().info("" + awaiting.contains(world) + " " + (uploading != null ? uploading.world.getName() : "null"));
+        while(true) {
             try {
                 synchronized(this) {
+                    if(!awaiting.contains(world) && (uploading == null || !uploading.world.equals(world)))
+                        break;
                     this.wait();
                 }
             } catch(InterruptedException e) {}
