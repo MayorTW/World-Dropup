@@ -139,8 +139,10 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     }
                     if(world == null) {
                         sender.sendMessage("找不到世界");
+                    } else if(worldUploader.isAwaiting(world)) {
+                        sender.sendMessage(world.getName() + " 已經在等待備份了");
                     } else {
-                        sender.sendMessage("準備備份" + world.getName());
+                        sender.sendMessage("準備備份 " + world.getName());
                         worldUploader.backupWorld(world);
                     }
                     return true;
@@ -190,6 +192,11 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         return true;
                     }
 
+                    if(worldDownloader.getCurrentWorld() != null) {
+                        sender.sendMessage("還有世界在回復，晚點再試");
+                        return true;
+                    }
+
                     World world = getServer().getWorld(args[1]);
                     if(world == null) {
                         sender.sendMessage("找不到世界");
@@ -223,7 +230,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                     // wait for current backup task the restore
                     getServer().getScheduler().runTaskAsynchronously(this, () -> {
-                        sender.sendMessage("正在等待上傳完成（如果有的話）");
+                        sender.sendMessage("準備恢復 " + world.getName());
                         worldUploader.waitForBackup(world);
 
                         // Now download and restore
@@ -256,18 +263,19 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 if(!checkCommandPermission(sender, "dropup.setting")) return true;
                 if(args.length <= 1) {
                     int speed = getConfig().getInt("download_speed");
-                    sender.sendMessage("下載速度：" + (speed > 0 ? speed : "無限制"));
+                    sender.sendMessage("下載速度：" + (speed > 0 ? speed + "kb/s" : "無限制"));
                     return true;
                 }
                 try {
                     int speed = Integer.parseInt(args[1]);
                     getConfig().set("download_speed", speed);
                     worldDownloader.setDownloadSpeed(speed);
-                    sender.sendMessage("下載速度設為：" + (speed > 0 ? speed : "無限制"));
+                    sender.sendMessage("下載速度設為：" + (speed > 0 ? speed + "kb/s" : "無限制"));
                 } catch(NumberFormatException e) {
                     sender.sendMessage(args[1] + " 不是一個數字");
                 }
                 return true;
+
             case "disable":
                 if(!checkCommandPermission(sender, "dropup.disable")) return true;
                 if(args.length > 1) {
@@ -281,11 +289,13 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 disabledReason += " - " + sender.getName();
 
                 return true;
+
             case "enable":
                 if(!checkCommandPermission(sender, "dropup.disable")) return true;
                 disabled = false;
                 sender.sendMessage("已恢復自動備份");
                 return true;
+
             case "list":
             case "ls":
                 if(!checkCommandPermission(sender, "dropup.list")) return true;
@@ -320,6 +330,36 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     return true;
                 }
                 break;
+
+            case "status":
+            case "st":
+                if(!checkCommandPermission(sender, "dropup.list")) return true;
+
+                sender.sendMessage("§f備份中：");
+                World uploading = worldUploader.getCurrentWorld();
+                if(uploading != null)
+                    sender.sendMessage("§e    " + uploading.getName());
+                else
+                    sender.sendMessage("    無");
+
+                sender.sendMessage("§f等待中：");
+                World[] awaiting = worldUploader.getAwaitingWorlds();
+                if(awaiting.length > 0) {
+                    for(World world : awaiting) {
+                        sender.sendMessage("§e    " + world.getName());
+                    }
+                } else
+                    sender.sendMessage("    無");
+
+                sender.sendMessage("§f恢復中：");
+                World restoring = worldDownloader.getCurrentWorld();
+                if(restoring != null)
+                    sender.sendMessage("§e    " + restoring.getName());
+                else
+                    sender.sendMessage("    無");
+
+                return true;
+
             case "menu":
             case "me":
                 if(!checkCommandPermission(sender, "dropup.list")) return true;
@@ -380,6 +420,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     sender.sendMessage("只有玩家才能使用");
                 }
                 return true;
+
             case "signin":
                 if(!checkCommandPermission(sender, "dropup.signin")) return true;
                 if(args.length <= 1) {
@@ -404,6 +445,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         sender.sendMessage("無法登入 Dropbox");
                 }
                 return true;
+
             default:
                 return false;
         }
@@ -426,7 +468,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     "backup", "bk", "restore", "re",
                     "uploadspeed", "us", "downloadspeed", "ds",
                     "disable", "enable",
-                    "list", "ls", "menu", "me", "signin"
+                    "list", "ls", "status", "st", "menu", "me", "signin"
             }).filter(s -> s.startsWith(args[0].toLowerCase())).toArray(String[]::new));
         } else if(args.length == 2) {
             if(mvWorldManager != null) {

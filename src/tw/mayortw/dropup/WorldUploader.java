@@ -108,7 +108,25 @@ public class WorldUploader implements Runnable {
             uploading.stream.setRate(speed);
     }
 
+    public World getCurrentWorld() {
+        if(uploading != null)
+            return uploading.world;
+        return null;
+    }
+
+    /*
+     * Return true if the world is awaiting or being upaloded
+     */
+    public boolean isAwaiting(World world) {
+        return awaiting.contains(world);
+    }
+
+    public World[] getAwaitingWorlds() {
+        return awaiting.toArray(new World[awaiting.size()]);
+    }
+
     public void backupWorld(World world) {
+        if(isAwaiting(world)) return;
         stopBackupWorldLater(world);
         awaiting.offer(world);
     }
@@ -149,7 +167,7 @@ public class WorldUploader implements Runnable {
             // Wait for a world
             World world;
             try {
-                uploading = new UploadInfo(awaiting.take(), null);
+                uploading = new UploadInfo(awaiting.take());
                 world = uploading.world;
             } catch(InterruptedException e) {
                 break;
@@ -192,13 +210,12 @@ public class WorldUploader implements Runnable {
                 return null; // And it triggers NullPointerException
             });
 
-            LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, uploadSpeed);
+            try(LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, uploadSpeed)) {
 
-            // Save the stream so it can be sped up later
-            uploading.stream = limitedOut;
+                // Save the stream so it can be sped up later
+                uploading.stream = limitedOut;
 
-            // Zip and upload
-            try {
+                // Zip and upload
                 File worldFolder = world.getWorldFolder();
                 FileUtil.zipFiles(limitedOut, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
 
@@ -260,9 +277,8 @@ public class WorldUploader implements Runnable {
     private static class UploadInfo {
         World world;
         LimitedOutputStream stream;
-        UploadInfo(World world, LimitedOutputStream stream) {
+        UploadInfo(World world) {
             this.world = world;
-            this.stream = stream;
         }
     }
 }

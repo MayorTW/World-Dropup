@@ -36,18 +36,20 @@ public class WorldDownloader {
     private MVWorldManager mvWorldManager;
     private Object lock = new Object();
 
-    private ConcurrentHashMap<UUID, LimitedInputStream> downloadings = new ConcurrentHashMap<>();
+    private DownloadInfo downloading = null;
+    private int downloadSpeed;
 
     public WorldDownloader(Plugin plugin, DbxClientV2 dbxClient, MVWorldManager mvWorldManager) {
         this.plugin = plugin;
         this.dbxClient = dbxClient;
         this.mvWorldManager = mvWorldManager;
+        this.downloadSpeed = plugin.getConfig().getInt("download_speed");
     }
 
     public void setDownloadSpeed(int speed) {
-        for(LimitedInputStream downloading : downloadings.values()) {
-            downloading.setRate(speed);
-        }
+        this.downloadSpeed = speed;
+        if(downloading != null && downloading.stream != null)
+            downloading.stream.setRate(speed);
     }
 
     public void removeDownloadDir() {
@@ -65,25 +67,31 @@ public class WorldDownloader {
     }
 
     public void stopAllDownloads() {
-        plugin.getLogger().info("Stopping all downloads");
+        plugin.getLogger().info("Stopping download");
 
         // Close the stream and wait
-        while(downloadings.size() > 0) {
-            for(LimitedInputStream downloading : downloadings.values()) {
-                try {
-                    downloading.close();
-                } catch(IOException e) {
-                    plugin.getLogger().warning("Cannot close input stream");
-                    e.printStackTrace();
-                }
-            }
-
+        if(downloading != null && downloading.stream != null) {
             try {
-                synchronized(lock) {
-                    lock.wait();
-                }
-            } catch(InterruptedException e) {}
+                downloading.stream.close();
+            } catch(IOException e) {
+                plugin.getLogger().warning("Cannot close input stream");
+                e.printStackTrace();
+            }
         }
+
+        synchronized(lock) {
+            while(downloading != null) {
+                try {
+                    lock.wait();
+                } catch(InterruptedException e) {}
+            }
+        }
+    }
+
+    public World getCurrentWorld() {
+        if(downloading != null)
+            return downloading.world;
+        return null;
     }
 
     public List<FileMetadata> listBackups(World world) {
@@ -120,6 +128,9 @@ public class WorldDownloader {
 
     // backupFile is the zip file name in Dropbox's world name folder
     public void restoreWorld(World world, String backupFile) {
+        if(downloading != null) return;
+        downloading = new DownloadInfo(world);
+
         // Unload the world first
         if(mvWorldManager.unloadWorld(world.getName(), true)) {
             Bukkit.broadcastMessage(String.format("[§e%s] §f已卸載世界 §a%s§f，回復完成前請不要加載", plugin.getName(), world.getName()));
@@ -128,20 +139,19 @@ public class WorldDownloader {
             return;
         }
 
+        String dbxPath = String.format("%s/%s/%s",
+                plugin.getConfig().getString("dropbox_path"),
+                world.getName(), backupFile);
+
         // Run in async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             Bukkit.broadcastMessage(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
 
-            String dbxPath = String.format("%s/%s/%s",
-                    plugin.getConfig().getString("dropbox_path"),
-                    world.getName(), backupFile);
-
-            try(DbxDownloader<FileMetadata> downloader = dbxClient.files().download(dbxPath)) {
-                LimitedInputStream in = new LimitedInputStream(downloader.getInputStream(),
-                        plugin.getConfig().getInt("download_speed"));
+            try(DbxDownloader<FileMetadata> downloader = dbxClient.files().download(dbxPath);
+                    LimitedInputStream in = new LimitedInputStream(downloader.getInputStream(), downloadSpeed)) {
 
                 // Save the stream so the speed can be changed later
-                downloadings.put(world.getUID(), in);
+                downloading.stream = in;
 
                 // Get the destinations
                 File worldDir = world.getWorldFolder();
@@ -187,10 +197,18 @@ public class WorldDownloader {
                 }
             }
 
-            downloadings.remove(world.getUID());
+            downloading = null;
             synchronized(lock) {
                 lock.notify();
             }
         });
+    }
+
+    private static class DownloadInfo {
+        World world;
+        LimitedInputStream stream;
+        DownloadInfo(World world) {
+            this.world = world;
+        }
     }
 }

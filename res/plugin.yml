@@ -20,6 +20,7 @@ commands:
                 disable [reason]
                 enable
                 list | ls [world] [max display]
+                status | st
                 menu | me
                 signin [code]
         aliases: ["du"]
