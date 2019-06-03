@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -118,7 +119,6 @@ public class WorldDownloader {
 
                 if(!listResult.getHasMore()) break;
             }
-        } catch(ListFolderErrorException e) {
         } catch(DbxException e) {
             plugin.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
         }
@@ -128,6 +128,11 @@ public class WorldDownloader {
 
     // backupFile is the zip file name in Dropbox's world name folder
     public void restoreWorld(World world, String backupFile) {
+        if(mvWorldManager == null) {
+            plugin.getLogger().warning("Can't restore world without MultiVerse");
+            return;
+        }
+
         if(downloading != null) return;
         downloading = new DownloadInfo(world);
 
@@ -186,9 +191,9 @@ public class WorldDownloader {
                     else
                         Bukkit.broadcastMessage(String.format("[§e%s] §f世界 §a%s §f已下載，但無法載入", plugin.getName(), world.getName()));
                     return null;
-                });
+                }).get();
 
-            } catch(IOException | DbxException e) {
+            } catch(IOException | DbxException | ExecutionException | InterruptedException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
                 // Retries is handled already for download so don't need to do it
 

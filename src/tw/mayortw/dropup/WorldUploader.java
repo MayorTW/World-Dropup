@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 
@@ -175,10 +176,15 @@ public class WorldUploader implements Runnable {
 
             // Do stuff that needs to be done in main thread
             if(plugin.isEnabled()) {
-                new MainThreadExec(() -> {
-                    cb.preWorldBackup(world);
-                    world.save();
-                }).exec();
+                try {
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        cb.preWorldBackup(world);
+                        world.save();
+                        return null;
+                    }).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    break;
+                }
             } else {
                 // Disabling, can't start new scheduler
                 // So we have to save the world in this thread
@@ -241,36 +247,6 @@ public class WorldUploader implements Runnable {
 
     public static interface Callback {
         public void preWorldBackup(World world);
-    }
-
-    // Run task in main thread and wait for it
-    private class MainThreadExec implements Runnable {
-
-        private Runnable run;
-        private boolean runned;
-
-        MainThreadExec(Runnable run) {
-            this.run = run;
-        }
-
-        synchronized void exec() {
-            runned = false;
-            Bukkit.getScheduler().runTask(WorldUploader.this.plugin, this);
-            while(!runned) {
-                try {
-                    this.wait();
-                } catch(InterruptedException e) {}
-            }
-        }
-
-        @Override
-        public void run() {
-            synchronized(this) {
-                run.run();
-                runned = true;
-                this.notify();
-            }
-        }
     }
 
     // POD to store world and its uploading stream
