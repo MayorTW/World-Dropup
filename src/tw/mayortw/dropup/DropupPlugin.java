@@ -298,6 +298,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
             case "reload":
             case "rl":
+                if(!checkCommandPermission(sender, "dropup.setting")) return true;
                 reloadConfig();
                 worldDownloader.setDownloadSpeed(getConfig().getInt("download_speed"));
                 worldUploader.setUploadSpeed(getConfig().getInt("upload_speed"));
