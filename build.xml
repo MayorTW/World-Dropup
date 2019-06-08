@@ -4,7 +4,7 @@
         Backup worlds to Dropbox
     </description>
 
-    <property name="version" value="0.4.1" />
+    <property name="version" value="0.4.2" />
 
     <property name="src" location="src" />
     <property name="build" location="build" />
