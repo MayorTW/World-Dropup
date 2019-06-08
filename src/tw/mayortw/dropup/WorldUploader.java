@@ -42,7 +42,7 @@ public class WorldUploader implements Runnable {
         this.plugin = plugin;
         this.dbxClient = dbxClient;
         this.cb = cb;
-        this.uploadSpeed = plugin.getConfig().getInt("upload_speed");
+        this.uploadSpeed = plugin.getConfig().getInt("upload_speed") * 1024; // kb to byte
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, this);
     }
@@ -103,10 +103,10 @@ public class WorldUploader implements Runnable {
      * This changes the current uploading stream too
      */
     public void setUploadSpeed(int speed) {
-        this.uploadSpeed = speed;
+        this.uploadSpeed = speed * 1024; // kb to byte
 
         if(uploading != null && uploading.stream != null)
-            uploading.stream.setRate(speed);
+            uploading.stream.setRate(uploadSpeed);
     }
 
     public World getCurrentWorld() {

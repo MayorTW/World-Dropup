@@ -23,7 +23,7 @@ public class LimitedOutputStream extends FilterOutputStream {
      */
     public LimitedOutputStream(OutputStream out, int limit) {
         super(out);
-        this.limit = limit * 1024; // turn kb into bytes
+        this.limit = limit;
     }
 
     /*

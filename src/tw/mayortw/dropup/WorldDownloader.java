@@ -43,13 +43,13 @@ public class WorldDownloader {
         this.plugin = plugin;
         this.dbxClient = dbxClient;
         this.mvWorldManager = mvWorldManager;
-        this.downloadSpeed = plugin.getConfig().getInt("download_speed");
+        this.downloadSpeed = plugin.getConfig().getInt("download_speed") * 1024; // kb to byte
     }
 
     public void setDownloadSpeed(int speed) {
-        this.downloadSpeed = speed;
+        this.downloadSpeed = speed * 1024; // kb to byte
         if(downloading != null && downloading.stream != null)
-            downloading.stream.setRate(speed);
+            downloading.stream.setRate(downloadSpeed);
     }
 
     public void removeDownloadDir() {

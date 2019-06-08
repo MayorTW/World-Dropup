@@ -23,7 +23,7 @@ public class LimitedInputStream extends FilterInputStream {
      */
     public LimitedInputStream(InputStream out, int limit) {
         super(out);
-        this.limit = limit * 1024; // turn kb into bytes
+        this.limit = limit;
     }
 
     /*
