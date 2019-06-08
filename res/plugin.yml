@@ -19,6 +19,7 @@ commands:
                 downloadspeed | ds [speed]
                 disable [reason]
                 enable
+                reload | rl
                 list | ls [world] [max display]
                 status | st
                 menu | me

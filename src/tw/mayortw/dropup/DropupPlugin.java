@@ -296,6 +296,14 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 sender.sendMessage("已恢復自動備份");
                 return true;
 
+            case "reload":
+            case "rl":
+                reloadConfig();
+                worldDownloader.setDownloadSpeed(getConfig().getInt("download_speed"));
+                worldUploader.setUploadSpeed(getConfig().getInt("upload_speed"));
+                sender.sendMessage("已重新載入設定檔");
+                return true;
+
             case "list":
             case "ls":
                 if(!checkCommandPermission(sender, "dropup.list")) return true;

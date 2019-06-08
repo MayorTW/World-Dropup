@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
@@ -97,7 +96,7 @@ public class WorldDownloader {
 
     public List<FileMetadata> listBackups(World world) {
         List<FileMetadata> rst = new ArrayList<>();
-        String dbxPath = plugin.getConfig().getString("dropbox_path") + "/" + world.getName();
+        String dbxPath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
         String cursor = null;
 
         try {
@@ -119,7 +118,7 @@ public class WorldDownloader {
 
                 if(!listResult.getHasMore()) break;
             }
-        } catch(DbxException e) {
+        } catch(IllegalArgumentException | DbxException e) {
             plugin.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
         }
 
@@ -146,7 +145,7 @@ public class WorldDownloader {
 
         String dbxPath = String.format("%s/%s/%s",
                 plugin.getConfig().getString("dropbox_path"),
-                world.getName(), backupFile);
+                world.getUID().toString(), backupFile);
 
         // Run in async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -193,7 +192,7 @@ public class WorldDownloader {
                     return null;
                 }).get();
 
-            } catch(IOException | DbxException | ExecutionException | InterruptedException e) {
+            } catch(IOException | DbxException | ExecutionException | InterruptedException | IllegalArgumentException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
                 // Retries is handled already for download so don't need to do it
 

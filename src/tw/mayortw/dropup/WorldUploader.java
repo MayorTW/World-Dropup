@@ -201,7 +201,6 @@ public class WorldUploader implements Runnable {
                 session = new DropboxUploadSession(dbxClient);
             } catch(DbxException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
-                e.printStackTrace();
                 return;
             }
 
@@ -227,13 +226,12 @@ public class WorldUploader implements Runnable {
 
                 // Finish Dropbox session
                 String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
-                        world.getName(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
+                        world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
                 String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
 
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
-            } catch(IOException | NullPointerException | DbxException e) {
+            } catch(IOException | NullPointerException | IllegalArgumentException | DbxException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
-                e.printStackTrace();
             }
 
             // Tell whoever's waiting that it has finished
