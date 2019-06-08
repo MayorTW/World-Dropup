@@ -35,7 +35,7 @@ public class DropboxUploadSession {
         nextSession(0);
     }
 
-    public void nextSession(int offset) throws DbxException {
+    public void nextSession(long offset) throws DbxException {
         if(uploader != null)
             uploader.finish();
 
@@ -45,7 +45,7 @@ public class DropboxUploadSession {
         });
     }
 
-    public FileMetadata finishSession(String path, int totalSize) throws DbxException {
+    public FileMetadata finishSession(String path, long totalSize) throws DbxException {
         if(uploader != null)
             uploader.finish();
 

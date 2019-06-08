@@ -14,7 +14,7 @@ import java.io.OutputStream;
  */
 public class SplitOutputStream extends FilterOutputStream {
 
-    private int written;
+    private long written;
     private int chunkSize;
     private Callback chunkCb;
 
@@ -25,16 +25,15 @@ public class SplitOutputStream extends FilterOutputStream {
         this.chunkCb = chunkCb;
     }
 
-    public int getWrittenBytes() {
+    public long getWrittenBytes() {
         return written;
     }
 
     @Override
     public void write(int b) throws IOException {
-        if(written >= chunkSize) {
+        if(written > 0 && written % chunkSize == 0) {
             out.close();
             out = chunkCb.next(written);
-            written = 0;
         }
 
         super.write(b);
@@ -42,6 +41,6 @@ public class SplitOutputStream extends FilterOutputStream {
     }
 
     public static interface Callback {
-        public OutputStream next(int offset);
+        public OutputStream next(long offset);
     }
 }
