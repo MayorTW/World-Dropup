@@ -6,6 +6,8 @@ package tw.mayortw.dropup;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
@@ -220,16 +222,31 @@ public class WorldUploader implements Runnable {
                 // Save the stream so it can be sped up later
                 uploading.stream = limitedOut;
 
-                // Zip and upload
+                // Copy the world directory to a temp folder
                 File worldFolder = world.getWorldFolder();
-                FileUtil.zipFiles(limitedOut, worldFolder); // TODO Copy folder to temp location if zip directly doesn't work
+                Path tempPath = Files.createTempDirectory("dropup-" + world.getUID());
+                File tempDir = tempPath.toFile();
+                FileUtil.copyDirectory(worldFolder, tempDir);
 
-                // Finish Dropbox session
-                String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
-                        world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
-                String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
+                try {
+                    // Zip and upload
+                    FileUtil.zipFiles(limitedOut, tempDir);
 
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
+                    // Finish Dropbox session
+                    String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
+                            world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
+                    String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
+
+                    Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
+                } finally {
+                    // Delete temp dir
+                    try {
+                        FileUtil.deleteDirectory(tempPath);
+                    } catch(IOException e) {
+                        plugin.getLogger().warning("Cannot delete temporary folder: " + e.getMessage());
+                    }
+                }
+
             } catch(IOException | NullPointerException | IllegalArgumentException | DbxException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
             }
