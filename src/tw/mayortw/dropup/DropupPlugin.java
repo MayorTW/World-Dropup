@@ -474,7 +474,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
         if(args.length == 1) {
             return Arrays.asList(Arrays.stream(new String[] {
-                    "backup", "bk", "restore", "re",
+                    "backup", "bk", "backupall", "bkall",
+                    "backuptime", "bktime", "restore", "re",
                     "uploadspeed", "us", "downloadspeed", "ds",
                     "disable", "enable", "reload", "rl",
                     "list", "ls", "status", "st", "menu", "me", "signin"
