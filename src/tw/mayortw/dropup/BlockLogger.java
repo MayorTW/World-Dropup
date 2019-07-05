@@ -5,6 +5,7 @@ package tw.mayortw.dropup;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
@@ -22,6 +23,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -30,47 +32,16 @@ import org.bukkit.Material;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.World;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.event.extent.EditSessionEvent;
-import com.sk89q.worldedit.extent.cache.LastAccessExtentCache;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.util.eventbus.Subscribe;
-import com.sk89q.worldedit.world.block.BlockStateHolder;
-import com.sk89q.worldedit.WorldEditException;
-
 public class BlockLogger implements Listener {
 
     private HashMap<Location, BlockState> blocksChanged = new HashMap<>();
+    private HashSet<World> worldEdited = new HashSet<>();
     private Plugin plugin;
     private Callback cb;
 
     public BlockLogger(Plugin plugin, Callback cb) {
         this.plugin = plugin;
         this.cb = cb;
-    }
-
-    @Subscribe
-    public void onWorldEditEvent(EditSessionEvent eve) {
-        if(eve.getStage() == EditSession.Stage.BEFORE_CHANGE) {
-            eve.setExtent(new LastAccessExtentCache(eve.getExtent()) {
-                @Override
-                public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 pos, T weBlock) throws WorldEditException {
-                    World world = BukkitAdapter.adapt(eve.getWorld());
-
-                    BlockState oldBlock = world.getBlockAt(pos.getX(), pos.getY(), pos.getZ()).getState();
-
-                    // Get the new block after this method finish
-                    // Then record the change
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        BlockState newBlock = world.getBlockAt(pos.getX(), pos.getY(), pos.getZ()).getState();
-                        update(BukkitAdapter.adapt(world, pos), oldBlock, newBlock);
-                    });
-
-                    return super.setBlock(pos, weBlock);
-                }
-            });
-        }
     }
 
     @EventHandler
@@ -96,6 +67,15 @@ public class BlockLogger implements Listener {
     @EventHandler
     public void onPlayerBucketFill(PlayerBucketFillEvent eve) {
         onPlayerBucket(eve);
+    }
+
+    @EventHandler
+    public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent eve) {
+        if(eve.getMessage().startsWith("//")) {
+            World world = eve.getPlayer().getWorld();
+            worldEdited.add(world);
+            cb.onWorldChanged(world, 1);
+        }
     }
 
     public void onPlayerBucket(PlayerBucketEvent eve) {
@@ -142,15 +122,18 @@ public class BlockLogger implements Listener {
 
     public void reset() {
         blocksChanged.clear();
+        worldEdited.clear();
     }
 
     public void reset(World world) {
         blocksChanged.keySet().removeIf(p -> p.getWorld().equals(world));
-        cb.onWorldChanged(world, (int) blocksChanged.keySet().stream().filter(pos -> pos.getWorld().equals(world)).count());
+        worldEdited.remove(world);
     }
 
     private void update(Location pos, BlockState oldBlock, BlockState newBlock) {
-        if(!blocksChanged.containsKey(pos)) { // haven't changed, record the original block
+        if(worldEdited.contains(pos.getWorld())) { // WorldEdit command was run in this world, not recording
+            return;
+        } if(!blocksChanged.containsKey(pos)) { // haven't changed, record the original block
             if(compareBlocks(oldBlock, newBlock)) return; // no change
             blocksChanged.put(pos, oldBlock);
         } else if(compareBlocks(blocksChanged.get(pos), newBlock)) { // changed back, remove from map
