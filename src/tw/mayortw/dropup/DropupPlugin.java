@@ -510,7 +510,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
     @Override
     public void onWorldChanged(World world, int changeCount) {
-        getLogger().info(world.getName() + " changed " + changeCount);
         if(!disabled && changeCount > 0)
             worldUploader.backupWorldLater(world);
         else
