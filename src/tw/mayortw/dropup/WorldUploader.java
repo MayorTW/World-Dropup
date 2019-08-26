@@ -22,6 +22,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scheduler.BukkitWorker;
 import org.bukkit.World;
 
+import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
+
 import com.dropbox.core.DbxException;
 import com.dropbox.core.v2.DbxClientV2;
 
@@ -182,6 +184,7 @@ public class WorldUploader implements Runnable {
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                         cb.preWorldBackup(world);
                         world.save();
+                        ((CraftWorld) world).getHandle().flushSave();
                         return null;
                     }).get();
                 } catch (InterruptedException | ExecutionException e) {
@@ -193,6 +196,7 @@ public class WorldUploader implements Runnable {
                 // the main thread is waiting anyways
                 // And not call callback
                 world.save();
+                ((CraftWorld) world).getHandle().flushSave();
             }
 
             // Backup
