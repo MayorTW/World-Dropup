@@ -11,19 +11,19 @@ commands:
     dropup:
         usage: |
             Commands:
-                backup | bk [world]
-                backupall | bkall
-                backuptime | bktime [time]
-                restore | re <world> <backup>
-                uploadspeed | us [speed]
-                downloadspeed | ds [speed]
-                disable [reason]
-                enable
-                reload | rl
-                list | ls [world] [max display]
-                status | st
-                menu | me
-                signin [code]
+                backup | bk [world] 備份只定的世界
+                backupall | bkall 備份所有世界
+                backuptime | bktime [time] 設定自動備份的最短間隔
+                restore | re <world> <backup> 恢復世界到之前的備份
+                uploadspeed | us [speed] 限制上傳速度。設成 -1 等於無限制
+                downloadspeed | ds [speed] 限制下載速度。設成 -1 等於無限制
+                disable [reason] 暫時停用自動備份
+                enable 重新啟用自動備份
+                reload | rl 重載設定檔
+                list | ls [world] [max display] 世界和備份列表
+                status | st 備份狀態
+                menu | me 備份選單
+                signin [code] 登入 Dropbox
         aliases: ["du"]
 permissions:
     dropup.disable:
