@@ -22,8 +22,6 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scheduler.BukkitWorker;
 import org.bukkit.World;
 
-import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
-
 import com.dropbox.core.DbxException;
 import com.dropbox.core.v2.DbxClientV2;
 
@@ -184,7 +182,7 @@ public class WorldUploader implements Runnable {
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                         cb.preWorldBackup(world);
                         world.save();
-                        ((CraftWorld) world).getHandle().flushSave();
+                        flushSave(world);
                         return null;
                     }).get();
                 } catch (InterruptedException | ExecutionException e) {
@@ -196,7 +194,7 @@ public class WorldUploader implements Runnable {
                 // the main thread is waiting anyways
                 // And not call callback
                 world.save();
-                ((CraftWorld) world).getHandle().flushSave();
+                flushSave(world);
             }
 
             // Backup
@@ -262,6 +260,19 @@ public class WorldUploader implements Runnable {
             }
         }
         plugin.getLogger().info("Backup worker thread stopped");
+    }
+
+    private void flushSave(World world) {
+        if(world instanceof org.bukkit.craftbukkit.v1_11_R1.CraftWorld)
+            ((org.bukkit.craftbukkit.v1_11_R1.CraftWorld) world).getHandle().flushSave();
+        else if(world instanceof org.bukkit.craftbukkit.v1_12_R1.CraftWorld)
+            ((org.bukkit.craftbukkit.v1_12_R1.CraftWorld) world).getHandle().flushSave();
+        else if(world instanceof org.bukkit.craftbukkit.v1_13_R1.CraftWorld)
+            ((org.bukkit.craftbukkit.v1_13_R1.CraftWorld) world).getHandle().flushSave();
+        else if(world instanceof org.bukkit.craftbukkit.v1_13_R2.CraftWorld)
+            ((org.bukkit.craftbukkit.v1_13_R2.CraftWorld) world).getHandle().flushSave();
+        else if(world instanceof org.bukkit.craftbukkit.v1_14_R1.CraftWorld)
+            ((org.bukkit.craftbukkit.v1_14_R1.CraftWorld) world).getHandle().flushSave();
     }
 
     public static interface Callback {
