@@ -252,6 +252,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
             case "delete":
                 {
+                    if(!checkCommandPermission(sender, "dropup.delete")) return true;
+
                     if(args.length <= 1) {
                         sender.sendMessage("請指定一個世界");
                         return true;
