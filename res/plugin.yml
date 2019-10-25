@@ -1,6 +1,6 @@
 name: "World-Dropup"
 main: tw.mayortw.dropup.DropupPlugin
-version: 0.4.4-nowe
+version: 0.5-nowe
 description: "Back up worlds to Dropbox"
 author: "R26"
 api-version: 1.13
@@ -32,6 +32,10 @@ permissions:
         default: op
     dropup.restore:
         default: op
+        children:
+            dropup.list: true
+    dropup.delete:
+        default: false
         children:
             dropup.list: true
     dropup.list:

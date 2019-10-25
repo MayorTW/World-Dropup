@@ -13,6 +13,31 @@ import org.bukkit.Material;
 
 import tw.mayortw.dropup.util.ReflectionUtils.PackageType;
 
+class VersionUtil {
+    /*
+     * Check if server is at least ver version
+     */
+    public static boolean atLeast(String verString) {
+        String[] compVer = verString.split("\\.");
+        String[] servVer = org.bukkit.Bukkit.getBukkitVersion().split("\\.");
+
+        for(int i = 0; i < compVer.length; i++) {
+            if(i >= servVer.length) return false;
+
+            int compNum = 0;
+            int servNum = 0;
+            try {
+                compNum = Integer.parseInt(compVer[i]);
+                servNum = Integer.parseInt(servVer[i]);
+            } catch (NumberFormatException e) {}
+
+            if(compNum != servNum) return compNum < servNum;
+        }
+
+        return true;
+    }
+}
+
 /**
  * Create a "Virtual" book gui that doesn't require the user to have a book in their hand.
  * Requires ReflectionUtil class.
@@ -27,14 +52,19 @@ public class BookUtil {
     private static Method openBook;
 
     static {
-        try {
-            getHandle = ReflectionUtils.getMethod("CraftPlayer", PackageType.CRAFTBUKKIT_ENTITY, "getHandle");
-            openBook = ReflectionUtils.getMethod("EntityPlayer", PackageType.MINECRAFT_SERVER, "a", PackageType.MINECRAFT_SERVER.getClass("ItemStack"), PackageType.MINECRAFT_SERVER.getClass("EnumHand"));
-            initialised = true;
-        } catch (ReflectiveOperationException e) {
-            e.printStackTrace();
-            Bukkit.getServer().getLogger().warning("Cannot force open book!");
+        if(VersionUtil.atLeast("1.14")) {
+            // There's API for this since 1.14
             initialised = false;
+        } else {
+            try {
+                getHandle = ReflectionUtils.getMethod("CraftPlayer", PackageType.CRAFTBUKKIT_ENTITY, "getHandle");
+                openBook = ReflectionUtils.getMethod("EntityPlayer", PackageType.MINECRAFT_SERVER, "a", PackageType.MINECRAFT_SERVER.getClass("ItemStack"), PackageType.MINECRAFT_SERVER.getClass("EnumHand"));
+                initialised = true;
+            } catch (ReflectiveOperationException e) {
+                e.printStackTrace();
+                Bukkit.getServer().getLogger().warning("Cannot force open book!");
+                initialised = false;
+            }
         }
     }
 
@@ -49,6 +79,12 @@ public class BookUtil {
      * @return
      */
     public static boolean openBook(ItemStack i, Player p) {
+
+        if(VersionUtil.atLeast("1.14")) {
+            p.openBook(i);
+            return true;
+        }
+
         if (!initialised) return false;
         ItemStack held = p.getInventory().getItemInMainHand();
         try {

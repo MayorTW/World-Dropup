@@ -165,6 +165,22 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     sender.sendMessage(args[1] + " 不是一個數字");
                 }
                 return true;
+            case "maxbackup":
+            case "maxbk":
+                if(!checkCommandPermission(sender, "dropup.setting")) return true;
+                if(args.length <= 1) {
+                    int maxSaves = getConfig().getInt("max_saves");
+                    sender.sendMessage("最多備份數量： " + maxSaves + "個");
+                    return true;
+                }
+                try {
+                    int maxSaves = Integer.parseInt(args[1]);
+                    getConfig().set("max_saves", maxSaves);
+                    sender.sendMessage("最多備份數量設為： " + maxSaves + "個");
+                } catch(NumberFormatException e) {
+                    sender.sendMessage(args[1] + " 不是一個數字");
+                }
+                return true;
             case "restore":
             case "re":
                 {
@@ -215,7 +231,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             .anyMatch(m -> m.getName().equals(args[2] + ".zip"))) {
                         sender.sendMessage("找不到備份");
                         return true;
-                            }
+                    }
 
                     // Cancel future backup
                     worldUploader.stopBackupWorldLater(world);
@@ -233,6 +249,30 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                     return true;
                 }
+
+            case "delete":
+                {
+                    if(args.length <= 1) {
+                        sender.sendMessage("請指定一個世界");
+                        return true;
+                    }
+
+                    if(args.length <= 2) {
+                        sender.sendMessage("請指定一個備份");
+                        return true;
+                    }
+
+                    World world = getServer().getWorld(args[1]);
+                    if(world == null) {
+                        sender.sendMessage("找不到世界");
+                        return true;
+                    }
+
+                    worldUploader.deleteBackup(world, args[2] + ".zip", false);
+
+                    return true;
+                }
+
             case "uploadspeed":
             case "us":
                 if(!checkCommandPermission(sender, "dropup.setting")) return true;
@@ -307,21 +347,25 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         return true;
                     }
 
-                    int counter = 10;
+                    int maxLines = 10;
                     if(args.length > 2) {
                         try {
-                            counter = Integer.parseInt(args[2]);
+                            maxLines = Integer.parseInt(args[2]);
                         } catch(NumberFormatException e) {}
                     }
 
                     sender.sendMessage("備份列表：");
-                    for(FileMetadata meta : worldDownloader.listBackups(world)) {
-                        if(--counter < 0) {
-                            sender.sendMessage("More...");
-                            break;
-                        }
-                        sender.sendMessage(meta.getName().replaceAll("\\.[^.]*$", ""));
-                    }
+                    List<FileMetadata> metas = worldDownloader.listBackups(world);
+                    metas.stream()
+                        .map(meta -> meta.getName().replaceAll("\\.[^.]*$", ""))
+                        .sorted(Collections.reverseOrder())
+                        .limit(maxLines)
+                        .forEach(name -> {
+                            sender.sendMessage(name);
+                        });
+                    if(maxLines < metas.size())
+                        sender.sendMessage("More...");
+
                     return true;
                 } else if(mvWorldManager != null) {
                     sender.sendMessage("世界列表：");
@@ -365,9 +409,11 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "me":
                 if(!checkCommandPermission(sender, "dropup.list")) return true;
                 if(sender instanceof Player) {
+                    ArrayList<String> lines = new ArrayList<>();
+
                     if(args.length <= 1 && mvWorldManager != null) {
-                        BookUtil.openBook(BookUtil.createBook(
-                            Arrays.asList(mvWorldManager.getMVWorlds().stream()
+                            lines.add("{\"text\":\"世界列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
+                            mvWorldManager.getMVWorlds().stream()
                                 .map(world -> {
                                     String name = world.getName();
                                     String alias = world.getAlias();
@@ -380,9 +426,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                                     return String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", alias, name);
                                 })
-                                .sorted()
-                                .toArray(String[]::new))),
-                            (Player) sender);
+                                .sorted().forEach(lines::add);
                     } else {
                         World world = getServer().getWorld(args[1]);
                         if(world == null) {
@@ -390,33 +434,56 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             return true;
                         }
 
-                        ArrayList<String> lines = new ArrayList<>();
+                        if(args.length <= 2) {
 
-                        lines.add("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me\"}}");
+                            lines.add("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me\"}}");
 
-                        if(sender.hasPermission("dropup.backup"))
-                            lines.add(String.format("{\"text\":\"立刻備份\\n\",\"color\":\"dark_green\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du bk %s\"}}", world.getName()));
+                            if(sender.hasPermission("dropup.backup"))
+                                lines.add(String.format("{\"text\":\"立刻備份\\n\",\"color\":\"dark_green\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du bk %s\"}}", world.getName()));
+                            if(sender.hasPermission("dropup.restore"))
+                                lines.add(String.format("{\"text\":\"回復模式\\n\",\"color\":\"blue\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s restore\"}}", world.getName()));
+                            if(sender.hasPermission("dropup.delete"))
+                                lines.add(String.format("{\"text\":\"刪除模式\\n\",\"color\":\"red\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s delete\"}}", world.getName()));
 
-                        if(sender.hasPermission("dropup.restore")) {
-                            lines.add("{\"text\":\"回復:\\n\",\"color\":\"blue\",\"bold\":true}");
-                            worldDownloader.listBackups(world).stream()
-                                .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
-                                .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du re %s %s\"}}", s, world.getName(), s))
-                                .sorted(Collections.reverseOrder())
-                                .forEachOrdered(lines::add);
-                        } else if(sender.hasPermission("dropup.list")) {
                             lines.add("{\"text\":\"備份列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
-                            worldDownloader.listBackups(world).stream()
-                                .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
-                                .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
-                                .sorted(Collections.reverseOrder())
-                                .forEachOrdered(lines::add);
-                        } else {
-                            lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
-                        }
 
-                        BookUtil.openBook(BookUtil.createBook(lines), (Player) sender);
+                            if(sender.hasPermission("dropup.list")) {
+                                worldDownloader.listBackups(world).stream()
+                                    .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                    .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
+                                    .sorted(Collections.reverseOrder())
+                                    .forEachOrdered(lines::add);
+                            } else {
+                                lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
+                            }
+                        } else {
+                            lines.add(String.format("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", world.getName()));
+                            switch(args[2]) {
+                                case "restore":
+                                    if(checkCommandPermission(sender, "dropup.restore")) {
+                                        lines.add("{\"text\":\"回復:\\n\",\"color\":\"blue\",\"bold\":true}");
+                                        worldDownloader.listBackups(world).stream()
+                                            .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                            .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du re %s %s\"}}", s, world.getName(), s))
+                                            .sorted(Collections.reverseOrder())
+                                            .forEachOrdered(lines::add);
+                                    }
+                                    break;
+                                case "delete":
+                                    if(checkCommandPermission(sender, "dropup.delete")) {
+                                        lines.add("{\"text\":\"刪除備份:\\n\",\"color\":\"red\",\"bold\":true}");
+                                        worldDownloader.listBackups(world).stream()
+                                            .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                            .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du delete %s %s\"}}", s, world.getName(), s))
+                                            .sorted(Collections.reverseOrder())
+                                            .forEachOrdered(lines::add);
+                                    }
+                                    break;
+                            }
+                        }
                     }
+
+                    BookUtil.openBook(BookUtil.createBook(lines), (Player) sender);
                 } else {
                     sender.sendMessage("只有玩家才能使用");
                 }
@@ -466,17 +533,19 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
         if(args.length == 1) {
             return Arrays.asList(Arrays.stream(new String[] {
-                    "backup", "bk", "backupall", "bkall",
-                    "backuptime", "bktime", "restore", "re",
-                    "uploadspeed", "us", "downloadspeed", "ds",
-                    "disable", "enable", "reload", "rl",
-                    "list", "ls", "status", "st", "menu", "me", "signin"
+                "backup", "bk", "backupall", "bkall",
+                "backuptime", "bktime", "maxbackup",
+                "restore", "re", "delete",
+                "uploadspeed", "us", "downloadspeed", "ds",
+                "disable", "enable", "reload", "rl",
+                "list", "ls", "status", "st", "menu", "me", "signin"
             }).filter(s -> s.startsWith(args[0].toLowerCase())).toArray(String[]::new));
         } else if(args.length == 2) {
             if(mvWorldManager != null) {
                 switch(args[0].toLowerCase()) {
                     case "backup":  case "bk":
                     case "restore": case "re":
+                    case "delete":
                     case "list":    case "ls":
                     case "menu":    case "me":
                         if(!sender.hasPermission("dropup.list")) break;
@@ -487,7 +556,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
         } else if(args.length == 3) {
             switch(args[0].toLowerCase()) {
                 case "restore": case "re":
-                    if(!sender.hasPermission("dropup.restore") || !sender.hasPermission("dropup.list")) break;
+                case "delete":
+                    if(!sender.hasPermission("dropup.list")) break;
                     World world = getServer().getWorld(args[1]);
                     if(world != null) {
                         return Arrays.asList(worldDownloader.listBackups(world).stream()
