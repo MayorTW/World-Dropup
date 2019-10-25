@@ -532,7 +532,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
     }
 
     private boolean checkCommandPermission(CommandSender sender, String perm) {
-        if(!sender.hasPermission(perm)) {
+        if(!(sender instanceof ConsoleCommandSender) && !sender.hasPermission(perm)) {
             sender.sendMessage("你沒有權限做這件事。需要 " + perm);
             return false;
         }
