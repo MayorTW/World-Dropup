@@ -6,6 +6,7 @@ package tw.mayortw.dropup;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
@@ -30,6 +31,7 @@ import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.files.ListFolderResult;
 import com.dropbox.core.v2.files.Metadata;
 
+import tw.mayortw.dropup.util.ReflectionUtils.PackageType;
 import tw.mayortw.dropup.util.*;
 
 public class WorldUploader implements Runnable {
@@ -170,7 +172,7 @@ public class WorldUploader implements Runnable {
                 world.getUID().toString(), backupFile);
 
         try {
-            dbxClient.files().delete(dbxPath);
+            dbxClient.files().deleteV2(dbxPath);
             if(!silent)
                 Bukkit.broadcastMessage(String.format("[§e%s] §f已刪除 §a%s", plugin.getName(), backupFile));
         } catch(DbxException e) {
@@ -333,20 +335,19 @@ public class WorldUploader implements Runnable {
     }
 
     private void flushSave(World world) {
-        if(world instanceof org.bukkit.craftbukkit.v1_14_R1.CraftWorld) {
-            try {
-                ((org.bukkit.craftbukkit.v1_14_R1.CraftWorld) world).getHandle().save(null, true, false);
-            } catch(net.minecraft.server.v1_14_R1.ExceptionWorldConflict e) {}
-        } else {
-            world.save();
-            if(world instanceof org.bukkit.craftbukkit.v1_11_R1.CraftWorld)
-                ((org.bukkit.craftbukkit.v1_11_R1.CraftWorld) world).getHandle().flushSave();
-            else if(world instanceof org.bukkit.craftbukkit.v1_12_R1.CraftWorld)
-                ((org.bukkit.craftbukkit.v1_12_R1.CraftWorld) world).getHandle().flushSave();
-            else if(world instanceof org.bukkit.craftbukkit.v1_13_R1.CraftWorld)
-                ((org.bukkit.craftbukkit.v1_13_R1.CraftWorld) world).getHandle().flushSave();
-            else if(world instanceof org.bukkit.craftbukkit.v1_13_R2.CraftWorld)
-                ((org.bukkit.craftbukkit.v1_13_R2.CraftWorld) world).getHandle().flushSave();
+        world.save();
+
+        try {
+            Method getHandle = ReflectionUtils.getMethod("CraftWorld", PackageType.CRAFTBUKKIT, "getHandle");
+            if(VersionUtil.atLeast("1.14")) {
+                Method save = ReflectionUtils.getMethod("WorldServer", PackageType.MINECRAFT_SERVER, "save", PackageType.MINECRAFT_SERVER.getClass("IProgressUpdate"), boolean.class, boolean.class);
+                save.invoke(getHandle.invoke(world), null, true, false);
+            } else {
+                Method flushSave = ReflectionUtils.getMethod("WorldServer", PackageType.MINECRAFT_SERVER, "flushSave");
+                flushSave.invoke(getHandle.invoke(world));
+            }
+        } catch(Exception e) { // ClassNotFoundException, NoSuchMethodException and ExceptionWorldConflict
+            plugin.getLogger().warning("Couldn't flush save: " + e.getMessage());
         }
     }
 
