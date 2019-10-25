@@ -14,7 +14,9 @@ commands:
                 backup | bk [world] 備份只定的世界
                 backupall | bkall 備份所有世界
                 backuptime | bktime [time] 設定自動備份的最短間隔
+                maxbackup | maxbk [max] 設定最大備份數量
                 restore | re <world> <backup> 恢復世界到之前的備份
+                delete <world> <backup> 刪除備份
                 uploadspeed | us [speed] 限制上傳速度。設成 -1 等於無限制
                 downloadspeed | ds [speed] 限制下載速度。設成 -1 等於無限制
                 disable [reason] 暫時停用自動備份
