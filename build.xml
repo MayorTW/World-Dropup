@@ -24,7 +24,9 @@
 
     <target name="compile">
         <mkdir dir="${build}" />
-        <javac srcdir="${src}" destdir="${build}" classpathref="classpath" includeantruntime="false" />
+        <javac srcdir="${src}" destdir="${build}" classpathref="classpath" includeantruntime="false">
+            <compilerarg value="-Xlint:deprecation" />
+        </javac>
     </target>
 
     <target name="dist" depends="compile">

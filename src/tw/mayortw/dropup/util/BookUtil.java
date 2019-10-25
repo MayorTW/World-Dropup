@@ -12,31 +12,7 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.Material;
 
 import tw.mayortw.dropup.util.ReflectionUtils.PackageType;
-
-class VersionUtil {
-    /*
-     * Check if server is at least ver version
-     */
-    public static boolean atLeast(String verString) {
-        String[] compVer = verString.split("\\.");
-        String[] servVer = org.bukkit.Bukkit.getBukkitVersion().split("\\.");
-
-        for(int i = 0; i < compVer.length; i++) {
-            if(i >= servVer.length) return false;
-
-            int compNum = 0;
-            int servNum = 0;
-            try {
-                compNum = Integer.parseInt(compVer[i]);
-                servNum = Integer.parseInt(servVer[i]);
-            } catch (NumberFormatException e) {}
-
-            if(compNum != servNum) return compNum < servNum;
-        }
-
-        return true;
-    }
-}
+import tw.mayortw.dropup.util.VersionUtil;
 
 /**
  * Create a "Virtual" book gui that doesn't require the user to have a book in their hand.
