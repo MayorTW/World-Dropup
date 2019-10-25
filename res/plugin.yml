@@ -34,6 +34,10 @@ permissions:
         default: op
         children:
             dropup.list: true
+    dropup.delete:
+        default: false
+        children:
+            dropup.list: true
     dropup.list:
         default: op
     dropup.setting:

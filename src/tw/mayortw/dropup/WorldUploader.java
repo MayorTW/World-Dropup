@@ -10,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -24,10 +26,15 @@ import org.bukkit.World;
 
 import com.dropbox.core.DbxException;
 import com.dropbox.core.v2.DbxClientV2;
+import com.dropbox.core.v2.files.FileMetadata;
+import com.dropbox.core.v2.files.ListFolderResult;
+import com.dropbox.core.v2.files.Metadata;
 
 import tw.mayortw.dropup.util.*;
 
 public class WorldUploader implements Runnable {
+
+    private static final String DATE_FORMAT = "yyyy-MM-dd-HH-mm-ss";
 
     private DbxClientV2 dbxClient;
     private Plugin plugin;
@@ -157,6 +164,68 @@ public class WorldUploader implements Runnable {
             scheduler.cancelTask(backupTaskId);
     }
 
+    public void deleteBackup(World world, String backupFile, boolean silent) {
+        String dbxPath = String.format("%s/%s/%s",
+                plugin.getConfig().getString("dropbox_path"),
+                world.getUID().toString(), backupFile);
+
+        try {
+            dbxClient.files().delete(dbxPath);
+            if(!silent)
+                Bukkit.broadcastMessage(String.format("[§e%s] §f已刪除 §a%s", plugin.getName(), backupFile));
+        } catch(DbxException e) {
+            if(!silent)
+                Bukkit.broadcastMessage(String.format("[§e%s] §f無法刪除 §a%s §c%s", plugin.getName(), backupFile, e.getMessage()));
+        }
+    }
+
+    private void deleteOldBackups(World world) {
+        String dbxPath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
+        String cursor = null;
+        ArrayList<String> files = new ArrayList<>();
+
+        try {
+            while(true) {
+                ListFolderResult listResult;
+                if(cursor == null) {
+                    listResult = dbxClient.files().listFolder(dbxPath);
+                    cursor = listResult.getCursor();
+                } else {
+                    listResult = dbxClient.files().listFolderContinue(cursor);
+                }
+
+                List<Metadata> entries = listResult.getEntries();
+                entries.forEach(meta -> {
+                    // Only need files
+                    if(meta instanceof FileMetadata) {
+                        String path = meta.getPathLower();
+                        files.add(path.substring(path.lastIndexOf('/')+1));
+                    }
+                });
+
+                if(!listResult.getHasMore()) break;
+            }
+        } catch(IllegalArgumentException | DbxException e) {
+            plugin.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
+        }
+
+        files.stream()
+            .sorted((a, b) -> {
+                String aDate = a.substring(0, a.lastIndexOf('.'));
+                String bDate = b.substring(0, b.lastIndexOf('.'));
+                try {
+                    return LocalDateTime.parse(bDate, DateTimeFormatter.ofPattern(DATE_FORMAT))
+                        .compareTo(LocalDateTime.parse(aDate, DateTimeFormatter.ofPattern(DATE_FORMAT)));
+                } catch(java.time.format.DateTimeParseException e) {
+                    return 0;
+                }
+            })
+            .skip(plugin.getConfig().getInt("max_saves"))
+            .forEach(file -> {
+                deleteBackup(world, file, true);
+            });
+    }
+
     // Work thread that does the uploading
     @Override
     public void run() {
@@ -234,8 +303,11 @@ public class WorldUploader implements Runnable {
 
                     // Finish Dropbox session
                     String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
-                            world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
+                            world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
                     String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
+
+                    // Clean old saves
+                    deleteOldBackups(world);
 
                     Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
                 } finally {
