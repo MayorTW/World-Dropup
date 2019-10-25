@@ -542,7 +542,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
         if(args.length == 1) {
             return Arrays.asList(Arrays.stream(new String[] {
                 "backup", "bk", "backupall", "bkall",
-                "backuptime", "bktime", "restore", "re", "delete",
+                "backuptime", "bktime", "maxbackup",
+                "restore", "re", "delete",
                 "uploadspeed", "us", "downloadspeed", "ds",
                 "disable", "enable", "reload", "rl",
                 "list", "ls", "status", "st", "menu", "me", "signin"
