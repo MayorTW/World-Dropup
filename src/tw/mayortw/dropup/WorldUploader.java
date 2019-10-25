@@ -181,7 +181,6 @@ public class WorldUploader implements Runnable {
                 try {
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                         cb.preWorldBackup(world);
-                        world.save();
                         flushSave(world);
                         return null;
                     }).get();
@@ -193,7 +192,6 @@ public class WorldUploader implements Runnable {
                 // So we have to save the world in this thread
                 // the main thread is waiting anyways
                 // And not call callback
-                world.save();
                 flushSave(world);
             }
 
@@ -263,16 +261,21 @@ public class WorldUploader implements Runnable {
     }
 
     private void flushSave(World world) {
-        if(world instanceof org.bukkit.craftbukkit.v1_11_R1.CraftWorld)
-            ((org.bukkit.craftbukkit.v1_11_R1.CraftWorld) world).getHandle().flushSave();
-        else if(world instanceof org.bukkit.craftbukkit.v1_12_R1.CraftWorld)
-            ((org.bukkit.craftbukkit.v1_12_R1.CraftWorld) world).getHandle().flushSave();
-        else if(world instanceof org.bukkit.craftbukkit.v1_13_R1.CraftWorld)
-            ((org.bukkit.craftbukkit.v1_13_R1.CraftWorld) world).getHandle().flushSave();
-        else if(world instanceof org.bukkit.craftbukkit.v1_13_R2.CraftWorld)
-            ((org.bukkit.craftbukkit.v1_13_R2.CraftWorld) world).getHandle().flushSave();
-        else if(world instanceof org.bukkit.craftbukkit.v1_14_R1.CraftWorld)
-            ((org.bukkit.craftbukkit.v1_14_R1.CraftWorld) world).getHandle().flushSave();
+        if(world instanceof org.bukkit.craftbukkit.v1_14_R1.CraftWorld) {
+            try {
+                ((org.bukkit.craftbukkit.v1_14_R1.CraftWorld) world).getHandle().save(null, true, false);
+            } catch(net.minecraft.server.v1_14_R1.ExceptionWorldConflict e) {}
+        } else {
+            world.save();
+            if(world instanceof org.bukkit.craftbukkit.v1_11_R1.CraftWorld)
+                ((org.bukkit.craftbukkit.v1_11_R1.CraftWorld) world).getHandle().flushSave();
+            else if(world instanceof org.bukkit.craftbukkit.v1_12_R1.CraftWorld)
+                ((org.bukkit.craftbukkit.v1_12_R1.CraftWorld) world).getHandle().flushSave();
+            else if(world instanceof org.bukkit.craftbukkit.v1_13_R1.CraftWorld)
+                ((org.bukkit.craftbukkit.v1_13_R1.CraftWorld) world).getHandle().flushSave();
+            else if(world instanceof org.bukkit.craftbukkit.v1_13_R2.CraftWorld)
+                ((org.bukkit.craftbukkit.v1_13_R2.CraftWorld) world).getHandle().flushSave();
+        }
     }
 
     public static interface Callback {
