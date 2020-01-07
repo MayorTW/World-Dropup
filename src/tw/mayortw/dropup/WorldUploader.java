@@ -288,41 +288,41 @@ public class WorldUploader implements Runnable {
                 return null; // And it triggers NullPointerException
             });
 
+            Path tempPath = null;
             try(LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, uploadSpeed)) {
 
                 // Save the stream so it can be sped up later
                 uploading.stream = limitedOut;
 
                 // Copy the world directory to a temp folder
+                tempPath = Files.createTempDirectory("dropup-" + world.getUID());
                 File worldFolder = world.getWorldFolder();
-                Path tempPath = Files.createTempDirectory("dropup-" + world.getUID());
                 File tempDir = tempPath.toFile();
                 FileUtil.copyDirectory(worldFolder, tempDir);
 
-                try {
-                    // Zip and upload
-                    FileUtil.zipFiles(limitedOut, tempDir);
+                // Zip and upload
+                FileUtil.zipFiles(limitedOut, tempDir);
 
-                    // Finish Dropbox session
-                    String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
-                            world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
-                    String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
+                // Finish Dropbox session
+                String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
+                        world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
+                String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
 
-                    // Clean old saves
-                    deleteOldBackups(world);
+                // Clean old saves
+                deleteOldBackups(world);
 
-                    Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
-                } finally {
-                    // Delete temp dir
-                    try {
-                        FileUtil.deleteDirectory(tempPath);
-                    } catch(IOException e) {
-                        plugin.getLogger().warning("Cannot delete temporary folder: " + e.getMessage());
-                    }
-                }
+                Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
 
             } catch(IOException | NullPointerException | IllegalArgumentException | DbxException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
+            } finally {
+                // Delete temp dir
+                try {
+                    if(tempPath != null)
+                        FileUtil.deleteDirectory(tempPath);
+                } catch(IOException e) {
+                    plugin.getLogger().warning("Cannot delete temporary folder: " + e.getMessage());
+                }
             }
 
             // Tell whoever's waiting that it has finished
