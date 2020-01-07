@@ -38,31 +38,40 @@ public class FileUtil {
 
     private static void ZipFiles(ZipOutputStream out, File srcFiles, StringBuilder zipFiles)
             throws IOException {
-            if (srcFiles.isDirectory()) {
-                Stream.of(srcFiles.listFiles()).forEach(files -> {
-                    try {
-                        if (files.isDirectory()) {
-                            StringBuilder zipFiless = new StringBuilder(zipFiles);
-                            zipFiless.append(files.getName()).append(File.separator);
-                            out.putNextEntry(new ZipEntry(zipFiless.toString()));
-                            ZipFiles(out, files, zipFiless);
-                        } else {
-                            ZipFiles(out, files, zipFiles);
+            try {
+                if (srcFiles.isDirectory()) {
+                    Stream.of(srcFiles.listFiles()).forEach(files -> {
+                        try {
+                            if (files.isDirectory()) {
+                                StringBuilder zipFiless = new StringBuilder(zipFiles);
+                                zipFiless.append(files.getName()).append(File.separator);
+                                out.putNextEntry(new ZipEntry(zipFiless.toString()));
+                                ZipFiles(out, files, zipFiless);
+                            } else {
+                                ZipFiles(out, files, zipFiles);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
                         }
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    });
+                } else if (srcFiles.isFile()) {
+                    byte[] buf = new byte[1024];
+                    try (FileInputStream in = new FileInputStream(srcFiles)) {
+                        out.putNextEntry(new ZipEntry(new StringBuilder(zipFiles).append(srcFiles.getName()).toString()));
+                        int len;
+                        while ((len = in.read(buf)) > 0) {
+                            out.write(buf, 0, len);
+                        }
+                    } finally {
+                        out.closeEntry();
                     }
-                });
-            } else if (srcFiles.isFile()) {
-                byte[] buf = new byte[1024];
-                try (FileInputStream in = new FileInputStream(srcFiles)) {
-                    out.putNextEntry(new ZipEntry(new StringBuilder(zipFiles).append(srcFiles.getName()).toString()));
-                    int len;
-                    while ((len = in.read(buf)) > 0) {
-                        out.write(buf, 0, len);
-                    }
-                } finally {
-                    out.closeEntry();
+                }
+            } catch(RuntimeException e) {
+                Throwable cause = e.getCause();
+                if(cause instanceof IOException) {
+                    throw (IOException) cause;
+                } else {
+                    throw e;
                 }
             }
     }
@@ -89,25 +98,34 @@ public class FileUtil {
         }
     }
 
-    public static void copyDirectory(File source, File target) {
+    public static void copyDirectory(File source, File target) throws IOException {
         if (!target.exists()) {
             target.mkdir();
         }
-        Stream.of(source.listFiles()).forEach(f -> {
-            try {
-                if (f.isFile()) {
-                    Files.copy(Paths.get(source.getAbsolutePath() + "/" + f.getName()),
-                            Paths.get(target.getAbsolutePath() + "/" + f.getName()));
+        try {
+            Stream.of(source.listFiles()).forEach(f -> {
+                try {
+                    if (f.isFile()) {
+                        Files.copy(Paths.get(source.getAbsolutePath() + "/" + f.getName()),
+                                Paths.get(target.getAbsolutePath() + "/" + f.getName()));
+                    }
+                    if (f.isDirectory()) {
+                        File sourceDemo = new File(source.getAbsolutePath() + "/" + f.getName());
+                        File destDemo = new File(target.getAbsolutePath() + "/" + f.getName());
+                        copyDirectory(sourceDemo, destDemo);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-                if (f.isDirectory()) {
-                    File sourceDemo = new File(source.getAbsolutePath() + "/" + f.getName());
-                    File destDemo = new File(target.getAbsolutePath() + "/" + f.getName());
-                    copyDirectory(sourceDemo, destDemo);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            });
+        } catch(RuntimeException e) {
+            Throwable cause = e.getCause();
+            if(cause instanceof IOException) {
+                throw (IOException) cause;
+            } else {
+                throw e;
             }
-        });
+        }
     }
 
     public static void deleteDirectory(Path temp) throws IOException {
