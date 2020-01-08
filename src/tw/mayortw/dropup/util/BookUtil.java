@@ -57,6 +57,12 @@ public class BookUtil {
     public static boolean openBook(ItemStack i, Player p) {
 
         if(VersionUtil.atLeast("1.14")) {
+            // Book won't open without title and authro after 1.14
+            BookMeta meta = (BookMeta) i.getItemMeta();
+            if(!meta.hasTitle()) meta.setTitle("");
+            if(!meta.hasAuthor()) meta.setAuthor("");
+            i.setItemMeta(meta);
+
             p.openBook(i);
             return true;
         }
