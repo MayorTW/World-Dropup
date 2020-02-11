@@ -69,8 +69,9 @@ public class WorldUploader implements Runnable {
         // Speed up upload
         setUploadSpeed(-1);
 
-        // Backup scheduled backups
+        // Save and backup scheduled backups
         for(World world : scheduledBackups.keySet()) {
+            flushSave(world);
             backupWorld(world);
         }
 
@@ -127,7 +128,7 @@ public class WorldUploader implements Runnable {
     }
 
     /*
-     * Return true if the world is awaiting or being upaloded
+     * Return true if the world is awaiting or being uploaded
      */
     public boolean isAwaiting(World world) {
         return awaiting.contains(world);
@@ -249,6 +250,7 @@ public class WorldUploader implements Runnable {
 
             // Do stuff that needs to be done in main thread
             if(plugin.isEnabled()) {
+                // When disabling, rely on finishAllBackups to flushSave
                 try {
                     Bukkit.getScheduler().callSyncMethod(plugin, () -> {
                         cb.preWorldBackup(world);
@@ -258,12 +260,6 @@ public class WorldUploader implements Runnable {
                 } catch (InterruptedException | ExecutionException e) {
                     break;
                 }
-            } else {
-                // Disabling, can't start new scheduler
-                // So we have to save the world in this thread
-                // the main thread is waiting anyways
-                // And not call callback
-                flushSave(world);
             }
 
             // Backup
