@@ -31,8 +31,6 @@ import com.dropbox.core.DbxWebAuth;
 import com.dropbox.core.v2.files.FileMetadata;
 import com.dropbox.core.v2.DbxClientV2;
 
-import com.sk89q.worldedit.WorldEdit;
-
 import tw.mayortw.dropup.util.BookUtil;
 
 public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Callback {
@@ -56,12 +54,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             getLogger().warning("Multiverse-Core not found or not enabled, won't be able to hot-restore");
         else
             mvWorldManager = mvPlugin.getCore().getMVWorldManager();
-
-        // WorldEdit block change logging support
-        if(pluginManager.isPluginEnabled("WorldEdit")) {
-            getLogger().info("Registering WorldEdit event");
-            WorldEdit.getInstance().getEventBus().register(blockLogger);
-        }
 
         saveDefaultConfig();
         dropboxSignIn();
