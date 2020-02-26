@@ -20,6 +20,7 @@
 
     <target name="resolve">
         <ivy:retrieve />
+        <ivy:dependencytree/>
     </target>
 
     <target name="compile">

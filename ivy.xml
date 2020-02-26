@@ -1,6 +1,15 @@
-<ivy-module version="2.0">
+<ivy-module version="2.0" xmlns:m="http://ant.apache.org/ivy/maven">
     <info organisation="tw.mayortw" module="world-dropup"/>
+
     <dependencies>
-        <dependency org="com.dropbox.core" name="dropbox-core-sdk" rev="3.0.11"/>
+        <dependency org="com.konghq" name="unirest-java" rev="3.6.00" transitive="false">
+            <artifact name="unirest-java" m:classifier="standalone" />
+        </dependency>
+        <dependency org="org.spigotmc" name="spigot-api" rev="1.15.1-R0.1-SNAPSHOT" m:classifier="shaded" transitive="false">
+            <artifact name="spigot-api" />
+        </dependency>
+        <dependency org="com.onarandombox.multiversecore" name="Multiverse-Core" rev="2.6.0" transitive="false">
+            <artifact name="Multiverse-Core" />
+        </dependency>
     </dependencies>
 </ivy-module>

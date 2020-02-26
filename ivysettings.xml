@@ -1,0 +1,11 @@
+<ivysettings>
+    <properties file="build.properties" />
+    <settings defaultResolver="chain"/>
+    <resolvers>
+        <chain name="chain">
+            <ibiblio name="central" m2compatible="true" pattern="[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]" />
+            <ibiblio name="spigot-repo" root="https://hub.spigotmc.org/nexus/content/repositories/snapshots/" m2compatible="true" pattern="[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]" />
+            <ibiblio name="mutiverse-repo" root="http://repo.onarandombox.com/content/repositories/multiverse/" m2compatible="true" />
+        </chain>
+    </resolvers>
+</ivysettings>
