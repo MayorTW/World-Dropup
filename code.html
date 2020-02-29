@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <div id="code"></div>
+        <br />
+        <div id="error"</div>
+        <script>
+            url = new URL(location.href);
+            document.getElementById("code").innerText = url.searchParams.get("code");
+            document.getElementById("error").innerText = url.searchParams.get("error");
+        </script>
+    </body>
+</html>
