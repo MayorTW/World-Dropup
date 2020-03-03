@@ -18,6 +18,8 @@
       </fileset>
     </path>
 
+    <taskdef classpath="ant/ant-shade-task-0.1-SNAPSHOT-jar-with-dependencies.jar" resource="org/apache/tools/ant/taskdefs/shade.properties" />
+
     <target name="resolve">
         <ivy:retrieve />
         <ivy:dependencytree/>
@@ -36,8 +38,12 @@
             <fileset dir="${build}" />
             <fileset dir="${src}" includes="**/*.java" excludes="**/Secret.java" />
             <fileset dir="${res}" includes="*.yml" />
-            <zipgroupfileset dir="${lib}" includes="dropbox-core-sdk-3.0.11.jar,jackson-core-2.7.4.jar" />
+            <zipgroupfileset dir="${lib}" includes="unirest-java-*.jar" />
         </jar>
+
+        <shade jar="${dist}/${ant.project.name}-${version}.jar" uberJar="${dist}/${ant.project.name}-${version}-shaded.jar">
+            <relocation pattern="com.google.gson" shadedPattern="shaded.com.google.gson" />
+        </shade>
     </target>
 
     <target name="clean">
