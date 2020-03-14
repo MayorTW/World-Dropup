@@ -24,23 +24,16 @@ import com.onarandombox.MultiverseCore.api.MVPlugin;
 import com.onarandombox.MultiverseCore.api.MVWorldManager;
 import com.onarandombox.MultiverseCore.api.MultiverseWorld;
 
-import com.dropbox.core.DbxAppInfo;
-import com.dropbox.core.DbxException;
-import com.dropbox.core.DbxRequestConfig;
-import com.dropbox.core.DbxWebAuth;
-import com.dropbox.core.v2.files.FileMetadata;
-import com.dropbox.core.v2.DbxClientV2;
-
 import tw.mayortw.dropup.util.BookUtil;
+import tw.mayortw.dropup.util.GoogleDriveUtil;
 
 public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Callback {
 
-    private DbxClientV2 dbxClient;
-    private DbxWebAuth dbxAuth;
     private WorldUploader worldUploader;
     private WorldDownloader worldDownloader;
     private MVWorldManager mvWorldManager;
     private BlockLogger blockLogger = new BlockLogger(this, this);
+    private GoogleDriveUtil drive = new GoogleDriveUtil();
 
     private boolean disabled = false;
     private String disabledReason;
@@ -56,63 +49,45 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             mvWorldManager = mvPlugin.getCore().getMVWorldManager();
 
         saveDefaultConfig();
-        dropboxSignIn();
+        driveSignIn();
         pluginManager.registerEvents(this, this);
         pluginManager.registerEvents(blockLogger, this);
     }
 
-    private void dropboxSignIn() {
-        // The APP key is in Secret.java locally
-        DbxRequestConfig reqConfig = DbxRequestConfig.newBuilder("dropup/1.0")
-            .withAutoRetryEnabled() .build();
-        DbxAppInfo appInfo = new DbxAppInfo(Secret.APP_KEY, Secret.APP_SECRET);
-        dbxAuth = new DbxWebAuth(reqConfig, appInfo);
-        String token = getConfig().getString("dropbox_token");
+    private void driveSignIn() {
+        String token = getConfig().getString("drive_token");
 
         if(token == null) {
-            getLogger().warning("Dropbox not signed in. Go to " + getAuthURL() + " to get the authorization code and type /dropup signin <code> to sign in");
             loginFailed();
         } else {
-            dbxClient = new DbxClientV2(reqConfig, token);
-            loginSuccess();
-            getLogger().info("Logged into Dropbox as " + getLoginName()); // There's a login check in getLoginName() too
-        }
-    }
-
-    private String getAuthURL() {
-        return dbxAuth.authorize(DbxWebAuth.newRequestBuilder().withNoRedirect().build());
-    }
-
-    private String getLoginName() {
-        if(dbxClient == null) return "";
-        try {
-            return dbxClient.users().getCurrentAccount().getName().getDisplayName();
-        } catch (DbxException e) {
-            loginFailed();
-            getLogger().warning("Dropbox login error: " + e.getMessage());
-            return "";
+            if(drive.loginToken(token)) {
+                loginSuccess();
+                getLogger().info("Logged into Google Drive as " + drive.getLoginName());
+            } else {
+                loginFailed();
+            }
         }
     }
 
     private void loginFailed() {
-        dbxClient = null;
+        getLogger().warning("Google Drive not signed in. Go to " + drive.getAuthUrl() + " to get the authorization code and type /dropup signin <code> to sign in");
         worldUploader = null;
         worldDownloader = null;
         disabled = true;
-        disabledReason = "Dropbox 登入錯誤";
+        disabledReason = "Google Drive 登入錯誤";
     }
 
     private void loginSuccess() {
-        worldUploader = new WorldUploader(this, dbxClient, blockLogger::reset);
-        worldDownloader = new WorldDownloader(this, dbxClient, mvWorldManager);
+        worldUploader = new WorldUploader(this, drive, blockLogger::reset);
+        worldDownloader = new WorldDownloader(this, drive, mvWorldManager);
         disabled = false;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length < 1) return false;
-        if(dbxClient == null && !args[0].equalsIgnoreCase("signin")) {
-            sender.sendMessage("Dropbox 尚未登入，請用 /dropup signin 來登入");
+        if(!drive.loggedIn() && !args[0].equalsIgnoreCase("signin")) {
+            sender.sendMessage("Google Drive 尚未登入，請用 /dropup signin 來登入");
             return true;
         }
         switch(args[0].toLowerCase()) {
@@ -184,6 +159,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "restore":
             case "re":
                 {
+                /*
                     if(!checkCommandPermission(sender, "dropup.restore")) return true;
                     if(mvWorldManager == null) {
                         sender.sendMessage("找不到Multiverse-Core，無法在執行中回復");
@@ -247,6 +223,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         });
                     });
 
+                    */
                     return true;
                 }
 
@@ -350,22 +327,25 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     }
 
                     int maxLines = 10;
+                    int skip = 0;
+
                     if(args.length > 2) {
                         try {
-                            maxLines = Integer.parseInt(args[2]);
+                            skip = Integer.parseInt(args[2]);
                         } catch(NumberFormatException e) {}
                     }
 
                     sender.sendMessage("備份列表：");
-                    List<FileMetadata> metas = worldDownloader.listBackups(world);
-                    metas.stream()
-                        .map(meta -> meta.getName().replaceAll("\\.[^.]*$", ""))
+                    List<String> files = worldDownloader.listBackups(world);
+                    files.stream()
+                        //.map(meta -> meta.getName().replaceAll("\\.[^.]*$", ""))
                         .sorted(Collections.reverseOrder())
+                        .skip(skip)
                         .limit(maxLines)
                         .forEach(name -> {
                             sender.sendMessage(name);
                         });
-                    if(maxLines < metas.size())
+                    if(files.size() - skip > maxLines)
                         sender.sendMessage("More...");
 
                     return true;
@@ -450,11 +430,13 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             lines.add("{\"text\":\"備份列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
 
                             if(sender.hasPermission("dropup.list")) {
+                                /*
                                 worldDownloader.listBackups(world).stream()
                                     .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
                                     .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
                                     .sorted(Collections.reverseOrder())
                                     .forEachOrdered(lines::add);
+                                    */
                             } else {
                                 lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
                             }
@@ -462,6 +444,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             lines.add(String.format("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", world.getName()));
                             switch(args[2]) {
                                 case "restore":
+                                    /*
                                     if(checkCommandPermission(sender, "dropup.restore")) {
                                         lines.add("{\"text\":\"回復:\\n\",\"color\":\"blue\",\"bold\":true}");
                                         worldDownloader.listBackups(world).stream()
@@ -470,8 +453,10 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                                             .sorted(Collections.reverseOrder())
                                             .forEachOrdered(lines::add);
                                     }
+                                    */
                                     break;
                                 case "delete":
+                                    /*
                                     if(checkCommandPermission(sender, "dropup.delete")) {
                                         lines.add("{\"text\":\"刪除備份:\\n\",\"color\":\"red\",\"bold\":true}");
                                         worldDownloader.listBackups(world).stream()
@@ -480,6 +465,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                                             .sorted(Collections.reverseOrder())
                                             .forEachOrdered(lines::add);
                                     }
+                                    */
                                     break;
                             }
                         }
@@ -494,25 +480,15 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "signin":
                 if(!checkCommandPermission(sender, "dropup.signin")) return true;
                 if(args.length <= 1) {
-                    sender.sendMessage("請到 " + getAuthURL() + " 取得認証碼，然後用 /dropup signin <認証碼> 登入");
+                    sender.sendMessage("請到 " + drive.getAuthUrl() + " 取得認証碼，然後用 /dropup signin <認証碼> 登入");
                     return true;
                 }
 
-                try {
-                    getConfig().set("dropbox_token", dbxAuth.finishFromCode(args[1].trim()).getAccessToken());
-                } catch(DbxException e) {
-                    sender.sendMessage("認証碼有誤");
-                    return true;
-                }
-
-                if(!disabled) {
-                    sender.sendMessage("登入資訊已修改，重啟後會重新登入");
+                if(drive.loginCode(args[1].trim())) {
+                    getConfig().set("drive_token", drive.getToken());
+                    sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
                 } else {
-                    dropboxSignIn();
-                    if(!disabled)
-                        sender.sendMessage("已登入到 " + getLoginName() + " 的Dropbox");
-                    else
-                        sender.sendMessage("無法登入 Dropbox");
+                    sender.sendMessage("無法登入 Google Drive");
                 }
                 return true;
 
@@ -560,6 +536,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 case "restore": case "re":
                 case "delete":
                     if(!sender.hasPermission("dropup.list")) break;
+                    /*
                     World world = getServer().getWorld(args[1]);
                     if(world != null) {
                         return Arrays.asList(worldDownloader.listBackups(world).stream()
@@ -567,6 +544,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                                 .filter(s -> s.startsWith(args[2]))
                                 .toArray(String[]::new));
                     }
+                    */
             }
         }
 

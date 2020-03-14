@@ -38,11 +38,11 @@
             <fileset dir="${build}" />
             <fileset dir="${src}" includes="**/*.java" excludes="**/Secret.java" />
             <fileset dir="${res}" includes="*.yml" />
-            <zipgroupfileset dir="${lib}" includes="unirest-java-*.jar" />
+            <zipgroupfileset dir="${lib}" includes="http*.jar, commons-*.jar" />
         </jar>
 
         <shade jar="${dist}/${ant.project.name}-${version}.jar" uberJar="${dist}/${ant.project.name}-${version}-shaded.jar">
-            <relocation pattern="com.google.gson" shadedPattern="shaded.com.google.gson" />
+            <relocation pattern="org.apache" shadedPattern="shaded.org.apache" />
         </shade>
     </target>
 

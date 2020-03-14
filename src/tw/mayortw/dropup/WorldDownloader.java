@@ -18,29 +18,21 @@ import org.bukkit.World;
 
 import com.onarandombox.MultiverseCore.api.MVWorldManager;
 
-import com.dropbox.core.DbxDownloader;
-import com.dropbox.core.DbxException;
-import com.dropbox.core.v2.files.DownloadErrorException;
-import com.dropbox.core.v2.files.FileMetadata;
-import com.dropbox.core.v2.files.ListFolderResult;
-import com.dropbox.core.v2.files.Metadata;
-import com.dropbox.core.v2.DbxClientV2;
-
 import tw.mayortw.dropup.util.*;
 
 public class WorldDownloader {
 
     private Plugin plugin;
-    private DbxClientV2 dbxClient;
+    private GoogleDriveUtil drive;
     private MVWorldManager mvWorldManager;
     private Object lock = new Object();
 
     private DownloadInfo downloading = null;
     private int downloadSpeed;
 
-    public WorldDownloader(Plugin plugin, DbxClientV2 dbxClient, MVWorldManager mvWorldManager) {
+    public WorldDownloader(Plugin plugin, GoogleDriveUtil drive, MVWorldManager mvWorldManager) {
         this.plugin = plugin;
-        this.dbxClient = dbxClient;
+        this.drive = drive;
         this.mvWorldManager = mvWorldManager;
         this.downloadSpeed = plugin.getConfig().getInt("download_speed") * 1024; // kb to byte
     }
@@ -93,39 +85,14 @@ public class WorldDownloader {
         return null;
     }
 
-    public List<FileMetadata> listBackups(World world) {
-        List<FileMetadata> rst = new ArrayList<>();
-        String dbxPath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
-        String cursor = null;
-
-        try {
-            while(true) {
-                ListFolderResult listResult;
-                if(cursor == null) {
-                    listResult = dbxClient.files().listFolder(dbxPath);
-                    cursor = listResult.getCursor();
-                } else {
-                    listResult = dbxClient.files().listFolderContinue(cursor);
-                }
-
-                List<Metadata> entries = listResult.getEntries();
-                entries.forEach(meta -> {
-                    // Only need files
-                    if(meta instanceof FileMetadata)
-                        rst.add((FileMetadata) meta);
-                });
-
-                if(!listResult.getHasMore()) break;
-            }
-        } catch(IllegalArgumentException | DbxException e) {
-            plugin.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
-        }
-
-        return rst;
+    public List<String> listBackups(World world) {
+        String drivePath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
+        return drive.listFileNames(drivePath);
     }
 
     // backupFile is the zip file name in Dropbox's world name folder
     public void restoreWorld(World world, String backupFile) {
+        /*
         if(mvWorldManager == null) {
             plugin.getLogger().warning("Can't restore world without MultiVerse");
             return;
@@ -142,7 +109,7 @@ public class WorldDownloader {
             return;
         }
 
-        String dbxPath = String.format("%s/%s/%s",
+        String drivePath = String.format("%s/%s/%s",
                 plugin.getConfig().getString("dropbox_path"),
                 world.getUID().toString(), backupFile);
 
@@ -205,6 +172,7 @@ public class WorldDownloader {
                 lock.notify();
             }
         });
+    */
     }
 
     private static class DownloadInfo {

@@ -25,12 +25,6 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scheduler.BukkitWorker;
 import org.bukkit.World;
 
-import com.dropbox.core.DbxException;
-import com.dropbox.core.v2.DbxClientV2;
-import com.dropbox.core.v2.files.FileMetadata;
-import com.dropbox.core.v2.files.ListFolderResult;
-import com.dropbox.core.v2.files.Metadata;
-
 import tw.mayortw.dropup.util.ReflectionUtils.PackageType;
 import tw.mayortw.dropup.util.*;
 
@@ -38,8 +32,8 @@ public class WorldUploader implements Runnable {
 
     private static final String DATE_FORMAT = "yyyy-MM-dd-HH-mm-ss";
 
-    private DbxClientV2 dbxClient;
     private Plugin plugin;
+    private GoogleDriveUtil drive;
     private Callback cb;
 
     private ConcurrentHashMap<World, Integer> scheduledBackups = new ConcurrentHashMap<>();
@@ -49,9 +43,9 @@ public class WorldUploader implements Runnable {
 
     private Thread workThread;
 
-    public WorldUploader(Plugin plugin, DbxClientV2 dbxClient, Callback cb) {
+    public WorldUploader(Plugin plugin, GoogleDriveUtil drive, Callback cb) {
         this.plugin = plugin;
-        this.dbxClient = dbxClient;
+        this.drive = drive;
         this.cb = cb;
         this.uploadSpeed = plugin.getConfig().getInt("upload_speed") * 1024; // kb to byte
 
@@ -167,7 +161,7 @@ public class WorldUploader implements Runnable {
             scheduler.cancelTask(backupTaskId);
     }
 
-    public void deleteBackup(World world, String backupFile, boolean silent) {
+    public void deleteBackup(World world, String backupFile, boolean silent) {/*
         String dbxPath = String.format("%s/%s/%s",
                 plugin.getConfig().getString("dropbox_path"),
                 world.getUID().toString(), backupFile);
@@ -180,9 +174,9 @@ public class WorldUploader implements Runnable {
             if(!silent)
                 Bukkit.broadcastMessage(String.format("[§e%s] §f無法刪除 §a%s §c%s", plugin.getName(), backupFile, e.getMessage()));
         }
-    }
+*/    }
 
-    private void deleteOldBackups(World world) {
+    private void deleteOldBackups(World world) {/*
         String dbxPath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
         String cursor = null;
         ArrayList<String> files = new ArrayList<>();
@@ -227,7 +221,7 @@ public class WorldUploader implements Runnable {
             .forEach(file -> {
                 deleteBackup(world, file, true);
             });
-    }
+*/    }
 
     // Work thread that does the uploading
     @Override
@@ -265,6 +259,7 @@ public class WorldUploader implements Runnable {
             // Backup
             Bukkit.broadcastMessage(String.format("[§e%s§r] §f正在備份 §a%s", plugin.getName(), world.getName()));
 
+            /*
             DropboxUploadSession session;
             try {
                 session = new DropboxUploadSession(dbxClient);
@@ -320,6 +315,9 @@ public class WorldUploader implements Runnable {
                     plugin.getLogger().warning("Cannot delete temporary folder: " + e.getMessage());
                 }
             }
+            */
+
+            drive.upload("/", "test.txt", new java.io.ByteArrayInputStream("hello".getBytes()));
 
             // Tell whoever's waiting that it has finished
             synchronized(this) {
