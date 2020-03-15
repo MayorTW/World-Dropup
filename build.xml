@@ -1,10 +1,10 @@
 <project xmlns:ivy="antlib:org.apache.ivy.ant" name="world-dropup" default="dist" basedir=".">
 
     <description>
-        Backup worlds to Dropbox
+        Backup worlds to Google Drive
     </description>
 
-    <property name="version" value="0.5.5" />
+    <property name="version" value="0.5.5-googledrive" />
 
     <property name="src" location="src" />
     <property name="build" location="build" />
@@ -43,7 +43,7 @@
         </jar>
 
         <shade jar="${dist}/${ant.project.name}-${version}.jar" uberJar="${dist}/${ant.project.name}-${version}-shaded.jar">
-            <relocation pattern="org.apache" shadedPattern="shaded.org.apache" />
+            <relocation pattern="org.apache" shadedPattern="tw.mayortw.dropup.shaded.org.apache" />
         </shade>
     </target>
 

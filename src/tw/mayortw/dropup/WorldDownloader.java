@@ -87,7 +87,7 @@ public class WorldDownloader {
     }
 
     public List<String> listBackups(World world) {
-        String drivePath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
+        String drivePath = plugin.getConfig().getString("drive_path") + "/" + world.getUID().toString();
         try {
             return drive.listFileNames(drivePath);
         } catch(GoogleDriveUtil.GoogleDriveException e) {
@@ -96,7 +96,7 @@ public class WorldDownloader {
         }
     }
 
-    // backupFile is the zip file name in Dropbox's world name folder
+    // backupFile is the zip file name on the drive
     public void restoreWorld(World world, String backupFile) {
         if(mvWorldManager == null) {
             plugin.getLogger().warning("Can't restore world without MultiVerse");
@@ -114,7 +114,7 @@ public class WorldDownloader {
         }
 
         String path = String.format("%s/%s/%s",
-                plugin.getConfig().getString("dropbox_path"),
+                plugin.getConfig().getString("drive_path"),
                 world.getUID().toString(), backupFile);
 
         downloading = new DownloadInfo(world);

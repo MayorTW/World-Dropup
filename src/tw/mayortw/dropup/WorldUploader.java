@@ -164,7 +164,7 @@ public class WorldUploader implements Runnable {
 
     public void deleteBackup(World world, String backupFile, boolean silent) {
         String path = String.format("%s/%s/%s",
-                plugin.getConfig().getString("dropbox_path"),
+                plugin.getConfig().getString("drive_path"),
                 world.getUID().toString(), backupFile);
 
         try {
@@ -178,7 +178,7 @@ public class WorldUploader implements Runnable {
     }
 
     private void deleteOldBackups(World world) {
-        String path = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
+        String path = plugin.getConfig().getString("drive_path") + "/" + world.getUID().toString();
 
         try {
             drive.listFileNames(path).stream()
@@ -253,7 +253,7 @@ public class WorldUploader implements Runnable {
                     uploading.stream = stream;
 
                     // Upload
-                    String uploadPath = String.format("%s/%s", plugin.getConfig().get("dropbox_path"), world.getUID().toString());
+                    String uploadPath = String.format("%s/%s", plugin.getConfig().get("drive_path"), world.getUID().toString());
                     String uploadName = String.format("%s.zip", LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
                     drive.upload(uploadPath, uploadName, stream);
 

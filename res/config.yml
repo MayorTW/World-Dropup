@@ -1,4 +1,4 @@
-dropbox_path: "/backup"
+drive_path: "/backup"
 download_path: ".dropup_download" # temp directory to download the world
 upload_speed: 1024
 download_speed: 1024

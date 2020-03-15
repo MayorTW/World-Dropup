@@ -1,7 +1,7 @@
 name: "World-Dropup"
 main: tw.mayortw.dropup.DropupPlugin
-version: 0.5.5
-description: "Back up worlds to Dropbox"
+version: 0.5.5-googledrive
+description: "Back up worlds to Google Drive"
 author: "R26"
 api-version: 1.13
 softdepend:
@@ -25,7 +25,7 @@ commands:
                 list | ls [world] [max display] 世界和備份列表
                 status | st 備份狀態
                 menu | me 備份選單
-                signin [code] 登入 Dropbox
+                signin [code] 登入 Google Drive
         aliases: ["du"]
 permissions:
     dropup.disable:
