@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.google.gson.*;
 
+import org.apache.http.HttpEntity;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.impl.client.BasicResponseHandler;
@@ -13,6 +14,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.util.EntityUtils;
 
 import tw.mayortw.dropup.Secret;
 
@@ -91,7 +93,8 @@ public class GoogleDriveUtil {
 
         try {
             this.token = json.getAsJsonPrimitive("access_token").getAsString();
-            this.refreshToken = json.getAsJsonPrimitive("refresh_token").getAsString();
+            if(json.has("refresh_token"))
+                this.refreshToken = json.getAsJsonPrimitive("refresh_token").getAsString();
         } catch(NullPointerException e) {
             throw new GoogleDriveException(e);
         }
@@ -105,7 +108,7 @@ public class GoogleDriveUtil {
             JsonObject json = sendRequest(authorized("GET", DRIVE_URL + "/files")
                     .addParameter("pageSize", "1000")
                     .addParameter("fields", "files")
-                    .addParameter("q", String.format("'%s' in parents", id)));
+                    .addParameter("q", String.format("'%s' in parents and trashed != true", id)));
 
             try {
 
@@ -147,8 +150,15 @@ public class GoogleDriveUtil {
         }
     }
 
+    public void deleteFile(String path) throws GoogleDriveException {
+        String id = findPathId(path, false);
+        if(id != null) {
+            sendRequest(authorized("DELETE", DRIVE_URL + "/files/" + id));
+        }
+    }
+
     // Find file id from a query string
-    private String findFileId(String query) throws GoogleDriveException {
+    private String queryId(String query) throws GoogleDriveException {
 
         JsonObject json = sendRequest(authorized("GET", DRIVE_URL + "/files")
                 .addParameter("pageSize", "1000")
@@ -170,7 +180,7 @@ public class GoogleDriveUtil {
 
         for(String folder : path.split("/")) {
             if(folder.equals("")) continue;
-            String newId = findFileId(String.format("name = '%s' and '%s' in parents", folder, id));
+            String newId = queryId(String.format("name = '%s' and '%s' in parents and trashed != true", folder, id));
 
             if(newId == null) {
                 if(!createNew) return null;
@@ -206,12 +216,20 @@ public class GoogleDriveUtil {
 
     private JsonObject sendRequest(RequestBuilder builder) throws GoogleDriveException {
         try {
-            JsonObject jobj = new JsonParser().parse(new BasicResponseHandler().handleResponse(http.execute(builder.build()))).getAsJsonObject();
-            JsonObject jerr = jobj.getAsJsonObject("error");
+            HttpEntity entity = http.execute(builder.build()).getEntity();
+            if(entity == null) return null;
+
+            String json = EntityUtils.toString(entity);
+            JsonObject jobj = new JsonParser().parse(json).getAsJsonObject();
+            JsonElement jerr = jobj.get("error");
 
             // API error
             if(jerr != null) {
-                JsonPrimitive jmsg = jerr.getAsJsonPrimitive("message");
+                JsonPrimitive jmsg;
+                if(jerr.isJsonObject())
+                    jmsg = jerr.getAsJsonObject().getAsJsonPrimitive("message");
+                else
+                    jmsg = jerr.getAsJsonPrimitive();
                 throw new GoogleDriveException(jmsg != null ? jmsg.getAsString() : null);
             }
 
