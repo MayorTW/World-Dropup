@@ -87,7 +87,11 @@ public class WorldDownloader {
 
     public List<String> listBackups(World world) {
         String drivePath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
-        return drive.listFileNames(drivePath);
+        try {
+            return drive.listFileNames(drivePath);
+        } catch(GoogleDriveUtil.GoogleDriveException e) {
+            return null;
+        }
     }
 
     // backupFile is the zip file name in Dropbox's world name folder

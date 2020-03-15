@@ -5,7 +5,8 @@ package tw.mayortw.dropup;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.FileInputStream;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -259,52 +260,31 @@ public class WorldUploader implements Runnable {
             // Backup
             Bukkit.broadcastMessage(String.format("[§e%s§r] §f正在備份 §a%s", plugin.getName(), world.getName()));
 
-            /*
-            DropboxUploadSession session;
-            try {
-                session = new DropboxUploadSession(dbxClient);
-            } catch(DbxException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
-                return;
-            }
-
-            SplitOutputStream splitOut = new SplitOutputStream(session.out, 1024 * 10, offset -> {
-                try {
-                    session.nextSession(offset);
-                    return session.out;
-                } catch(DbxException e) {
-                    Bukkit.broadcastMessage(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
-                    e.printStackTrace();
-                }
-                return null; // And it triggers NullPointerException
-            });
-
             Path tempPath = null;
-            try(LimitedOutputStream limitedOut = new LimitedOutputStream(splitOut, uploadSpeed)) {
-
-                // Save the stream so it can be sped up later
-                uploading.stream = limitedOut;
-
+            try {
                 // Copy the world directory to a temp folder
                 tempPath = Files.createTempDirectory("dropup-" + world.getUID());
                 File worldFolder = world.getWorldFolder();
-                File tempDir = tempPath.toFile();
-                FileUtil.copyDirectory(worldFolder, tempDir);
+                File zipFile = tempPath.resolve("backup.zip").toFile();
 
-                // Zip and upload
-                FileUtil.zipFiles(limitedOut, tempDir);
+                // Zip file
+                FileUtil.zipFiles(zipFile, worldFolder);
 
-                // Finish Dropbox session
-                String uploadPath = String.format("%s/%s/%s.zip", plugin.getConfig().get("dropbox_path"),
-                        world.getUID().toString(), LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
-                String uploaded = session.finishSession(uploadPath, splitOut.getWrittenBytes()).getPathDisplay();
+                try(LimitedInputStream stream = new LimitedInputStream(new FileInputStream(zipFile), uploadSpeed)) {
+                    // Save the stream so it can be sped up later
+                    uploading.stream = stream;
 
-                // Clean old saves
-                deleteOldBackups(world);
+                    // Upload
+                    String uploadPath = String.format("%s/%s", plugin.getConfig().get("dropbox_path"), world.getUID().toString());
+                    String uploadName = String.format("%s.zip", LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
+                    drive.upload(stream, uploadPath, uploadName);
 
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
+                    // Finish backup
+                    deleteOldBackups(world);
+                    Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份", plugin.getName(), world.getName()));
+                }
 
-            } catch(IOException | NullPointerException | IllegalArgumentException | DbxException e) {
+            } catch(GoogleDriveUtil.GoogleDriveException | IOException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
             } finally {
                 // Delete temp dir
@@ -315,9 +295,6 @@ public class WorldUploader implements Runnable {
                     plugin.getLogger().warning("Cannot delete temporary folder: " + e.getMessage());
                 }
             }
-            */
-
-            drive.upload("/", "test.txt", new java.io.ByteArrayInputStream("hello".getBytes()));
 
             // Tell whoever's waiting that it has finished
             synchronized(this) {
@@ -352,7 +329,7 @@ public class WorldUploader implements Runnable {
     // POD to store world and its uploading stream
     private static class UploadInfo {
         World world;
-        LimitedOutputStream stream;
+        LimitedInputStream stream;
         UploadInfo(World world) {
             this.world = world;
         }
