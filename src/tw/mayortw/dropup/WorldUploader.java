@@ -162,67 +162,45 @@ public class WorldUploader implements Runnable {
             scheduler.cancelTask(backupTaskId);
     }
 
-    public void deleteBackup(World world, String backupFile, boolean silent) {/*
-        String dbxPath = String.format("%s/%s/%s",
+    public void deleteBackup(World world, String backupFile, boolean silent) {
+        String path = String.format("%s/%s/%s",
                 plugin.getConfig().getString("dropbox_path"),
                 world.getUID().toString(), backupFile);
 
         try {
-            dbxClient.files().deleteV2(dbxPath);
+            drive.deleteFile(path);
             if(!silent)
                 Bukkit.broadcastMessage(String.format("[§e%s] §f已刪除 §a%s", plugin.getName(), backupFile));
-        } catch(DbxException e) {
+        } catch(GoogleDriveUtil.GoogleDriveException e) {
             if(!silent)
                 Bukkit.broadcastMessage(String.format("[§e%s] §f無法刪除 §a%s §c%s", plugin.getName(), backupFile, e.getMessage()));
         }
-*/    }
+    }
 
-    private void deleteOldBackups(World world) {/*
-        String dbxPath = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
-        String cursor = null;
-        ArrayList<String> files = new ArrayList<>();
+    private void deleteOldBackups(World world) {
+        String path = plugin.getConfig().getString("dropbox_path") + "/" + world.getUID().toString();
 
         try {
-            while(true) {
-                ListFolderResult listResult;
-                if(cursor == null) {
-                    listResult = dbxClient.files().listFolder(dbxPath);
-                    cursor = listResult.getCursor();
-                } else {
-                    listResult = dbxClient.files().listFolderContinue(cursor);
-                }
-
-                List<Metadata> entries = listResult.getEntries();
-                entries.forEach(meta -> {
-                    // Only need files
-                    if(meta instanceof FileMetadata) {
-                        String path = meta.getPathLower();
-                        files.add(path.substring(path.lastIndexOf('/')+1));
+            drive.listFileNames(path).stream()
+                .sorted((a, b) -> {
+                    String aDate = a.substring(0, a.lastIndexOf('.'));
+                    String bDate = b.substring(0, b.lastIndexOf('.'));
+                    try {
+                        return LocalDateTime.parse(bDate, DateTimeFormatter.ofPattern(DATE_FORMAT))
+                            .compareTo(LocalDateTime.parse(aDate, DateTimeFormatter.ofPattern(DATE_FORMAT)));
+                    } catch(java.time.format.DateTimeParseException e) {
+                        return 0;
                     }
+                })
+                .skip(plugin.getConfig().getInt("max_saves"))
+                .forEach(file -> {
+                    deleteBackup(world, file, true);
                 });
 
-                if(!listResult.getHasMore()) break;
-            }
-        } catch(IllegalArgumentException | DbxException e) {
-            plugin.getLogger().warning("Can't get folder content for " + dbxPath + ": " + e.getMessage());
+        } catch(GoogleDriveUtil.GoogleDriveException e) {
+            plugin.getLogger().warning("Can't get folder content for " + path + ": " + e.getMessage());
         }
-
-        files.stream()
-            .sorted((a, b) -> {
-                String aDate = a.substring(0, a.lastIndexOf('.'));
-                String bDate = b.substring(0, b.lastIndexOf('.'));
-                try {
-                    return LocalDateTime.parse(bDate, DateTimeFormatter.ofPattern(DATE_FORMAT))
-                        .compareTo(LocalDateTime.parse(aDate, DateTimeFormatter.ofPattern(DATE_FORMAT)));
-                } catch(java.time.format.DateTimeParseException e) {
-                    return 0;
-                }
-            })
-            .skip(plugin.getConfig().getInt("max_saves"))
-            .forEach(file -> {
-                deleteBackup(world, file, true);
-            });
-*/    }
+    }
 
     // Work thread that does the uploading
     @Override
