@@ -160,7 +160,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "restore":
             case "re":
                 {
-                /*
                     if(!checkCommandPermission(sender, "dropup.restore")) return true;
                     if(mvWorldManager == null) {
                         sender.sendMessage("找不到Multiverse-Core，無法在執行中回復");
@@ -205,7 +204,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     // Check if backup exists
                     String backup = args[2] + ".zip";
                     if(!worldDownloader.listBackups(world).stream()
-                            .anyMatch(m -> m.getName().equals(args[2] + ".zip"))) {
+                            .anyMatch(m -> m.equals(args[2] + ".zip"))) {
                         sender.sendMessage("找不到備份");
                         return true;
                     }
@@ -224,7 +223,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         });
                     });
 
-                    */
                     return true;
                 }
 

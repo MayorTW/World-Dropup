@@ -4,6 +4,7 @@ package tw.mayortw.dropup;
  */
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -97,14 +98,12 @@ public class WorldDownloader {
 
     // backupFile is the zip file name in Dropbox's world name folder
     public void restoreWorld(World world, String backupFile) {
-        /*
         if(mvWorldManager == null) {
             plugin.getLogger().warning("Can't restore world without MultiVerse");
             return;
         }
 
         if(downloading != null) return;
-        downloading = new DownloadInfo(world);
 
         // Unload the world first
         if(mvWorldManager.unloadWorld(world.getName(), true)) {
@@ -114,62 +113,67 @@ public class WorldDownloader {
             return;
         }
 
-        String drivePath = String.format("%s/%s/%s",
+        String path = String.format("%s/%s/%s",
                 plugin.getConfig().getString("dropbox_path"),
                 world.getUID().toString(), backupFile);
+
+        downloading = new DownloadInfo(world);
 
         // Run in async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             Bukkit.broadcastMessage(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
 
-            try(DbxDownloader<FileMetadata> downloader = dbxClient.files().download(dbxPath);
-                    LimitedInputStream in = new LimitedInputStream(downloader.getInputStream(), downloadSpeed)) {
+            // Get the destinations
+            File worldDir = world.getWorldFolder();
+            Path dloadPath = worldDir.toPath().resolveSibling(plugin.getConfig().getString("download_path"));
+            File dloadDir = dloadPath.toFile();
+            File extractDir = dloadPath.resolve(world.getName()).toFile();
+            File dloadFile = dloadPath.resolve(world.getName() + ".zip").toFile();
 
-                // Save the stream so the speed can be changed later
-                downloading.stream = in;
+            try {
+                // Prepare download destinations
+                if(dloadDir.exists()) {
+                    if(dloadDir.isDirectory())
+                        FileUtil.deleteDirectory(dloadPath);
+                    else
+                        dloadDir.delete();
+                }
+                extractDir.mkdirs();
 
-                // Get the destinations
-                File worldDir = world.getWorldFolder();
-                Path worldPath = worldDir.toPath();
-                Path dloadPath = worldPath
-                    .resolveSibling(plugin.getConfig().getString("download_path"))
-                    .resolve(world.getName());
-                File dloadDir = dloadPath.toFile();
+                // Download file
+                try(FileOutputStream fileStream = new FileOutputStream(dloadFile)) {
+                    // Save the stream so the speed can be changed later
+                    downloading.stream = new LimitedOutputStream(fileStream, downloadSpeed);
+                    drive.downloadFile(path, downloading.stream);
+                }
 
-                // Remove download directory if there's one
-                if(dloadDir.isDirectory())
-                    FileUtil.deleteDirectory(dloadPath);
-                else
-                    dloadDir.delete();
-
-                dloadDir.mkdirs();
-
-                // download and unzip
-                FileUtil.unzipFiles(in, dloadPath);
+                // Unzip
+                FileUtil.unzipFiles(dloadFile, extractDir.toPath());
 
                 // When success, delete old world folder and rename new one to old
-                FileUtil.deleteDirectory(worldPath);
-                if(!dloadDir.renameTo(worldDir)) {
-                    // Cannot rename, have to copy it then delete the source
-                    FileUtil.copyDirectory(dloadDir, worldDir);
-                    FileUtil.deleteDirectory(dloadPath);
+                FileUtil.deleteDirectory(worldDir);
+                if(!extractDir.renameTo(worldDir)) {
+                    // Cannot rename, have to copy it
+                    FileUtil.copyDirectory(extractDir, worldDir);
                 }
 
-                Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                    if(mvWorldManager.loadWorld(world.getName()))
-                        Bukkit.broadcastMessage(String.format("[§e%s] §f已從 §a%s §f回復 §a%s", plugin.getName(), dbxPath, world.getName()));
-                    else
-                        Bukkit.broadcastMessage(String.format("[§e%s] §f世界 §a%s §f已下載，但無法載入", plugin.getName(), world.getName()));
-                    return null;
-                }).get();
+                // Load the world
+                try {
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        if(mvWorldManager.loadWorld(world.getName()))
+                            Bukkit.broadcastMessage(String.format("[§e%s] §f已從 §a%s §f回復 §a%s", plugin.getName(), path, world.getName()));
+                        else
+                            Bukkit.broadcastMessage(String.format("[§e%s] §f世界 §a%s §f已下載，但無法載入", plugin.getName(), world.getName()));
+                        return null;
+                    }).get();
+                } catch(InterruptedException | ExecutionException e) {}
 
-            } catch(IOException | DbxException | ExecutionException | InterruptedException | IllegalArgumentException e) {
+            } catch(IOException | GoogleDriveUtil.GoogleDriveException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
-                // Retries is handled already for download so don't need to do it
-
-                if(!(e instanceof DownloadErrorException)) {
-                    plugin.getLogger().warning("Dropbox error when downloading " + dbxPath + ": " + e.getMessage());
-                }
+            } finally {
+                try {
+                    FileUtil.deleteDirectory(dloadFile);
+                } catch(IOException e) {}
             }
 
             downloading = null;
@@ -177,12 +181,11 @@ public class WorldDownloader {
                 lock.notify();
             }
         });
-    */
     }
 
     private static class DownloadInfo {
         World world;
-        LimitedInputStream stream;
+        LimitedOutputStream stream;
         DownloadInfo(World world) {
             this.world = world;
         }

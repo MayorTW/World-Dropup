@@ -76,6 +76,12 @@ public class FileUtil {
             }
     }
 
+    public static void unzipFiles(File file, Path dest) throws IOException {
+        try(FileInputStream stream = new FileInputStream(file)) {
+            unzipFiles(stream, dest);
+        }
+    }
+
     public static void unzipFiles(InputStream in, Path dest) throws IOException {
 
         ZipInputStream zipIn = new ZipInputStream(in);
@@ -126,6 +132,10 @@ public class FileUtil {
                 throw e;
             }
         }
+    }
+
+    public static void deleteDirectory(File temp) throws IOException {
+        deleteDirectory(temp.toPath());
     }
 
     public static void deleteDirectory(Path temp) throws IOException {

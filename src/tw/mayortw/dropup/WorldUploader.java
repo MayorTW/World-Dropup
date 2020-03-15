@@ -255,11 +255,11 @@ public class WorldUploader implements Runnable {
                     // Upload
                     String uploadPath = String.format("%s/%s", plugin.getConfig().get("dropbox_path"), world.getUID().toString());
                     String uploadName = String.format("%s.zip", LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
-                    drive.upload(stream, uploadPath, uploadName);
+                    drive.upload(uploadPath, uploadName, stream);
 
                     // Finish backup
                     deleteOldBackups(world);
-                    Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份", plugin.getName(), world.getName()));
+                    Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), String.format("%s/%s", uploadPath, uploadName)));
                 }
 
             } catch(GoogleDriveUtil.GoogleDriveException | IOException e) {

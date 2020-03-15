@@ -1,12 +1,15 @@
 package tw.mayortw.dropup.util;
 
 import java.io.InputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.google.gson.*;
 
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.impl.client.BasicResponseHandler;
@@ -57,7 +60,7 @@ public class GoogleDriveUtil {
 
     public String getLoginName() throws GoogleDriveException {
         try {
-            return sendRequest(authorized("GET", DRIVE_URL + "/about").addParameter("fields", "user"))
+            return toJson(sendRequest(authorized("GET", DRIVE_URL + "/about").addParameter("fields", "user")))
                 .getAsJsonObject("user").getAsJsonPrimitive("displayName").getAsString();
         } catch(NullPointerException e) {
             throw new GoogleDriveException(e);
@@ -69,11 +72,11 @@ public class GoogleDriveUtil {
 
         this.refreshToken = token;
 
-        JsonObject json = sendRequest(RequestBuilder.post(OAUTH_URL)
+        JsonObject json = toJson(sendRequest(RequestBuilder.post(OAUTH_URL)
                 .addParameter("client_id", Secret.CLIENT_ID)
                 .addParameter("client_secret", Secret.CLIENT_SECRET)
                 .addParameter("grant_type", "refresh_token")
-                .addParameter("refresh_token", token));
+                .addParameter("refresh_token", token)));
 
         try {
             this.token = json.getAsJsonPrimitive("access_token").getAsString();
@@ -84,12 +87,12 @@ public class GoogleDriveUtil {
 
     // Login using auth code obtained from auth url
     public void loginCode(String code) throws GoogleDriveException {
-        JsonObject json = sendRequest(RequestBuilder.post(OAUTH_URL)
+        JsonObject json = toJson(sendRequest(RequestBuilder.post(OAUTH_URL)
                 .addParameter("client_id", Secret.CLIENT_ID)
                 .addParameter("client_secret", Secret.CLIENT_SECRET)
                 .addParameter("code", code)
                 .addParameter("grant_type", "authorization_code")
-                .addParameter("redirect_uri", redirectUrl));
+                .addParameter("redirect_uri", redirectUrl)));
 
         try {
             this.token = json.getAsJsonPrimitive("access_token").getAsString();
@@ -102,13 +105,13 @@ public class GoogleDriveUtil {
 
     public List<String> listFileNames(String path) throws GoogleDriveException {
         List<String> names = new ArrayList<>();
-        String id = findPathId(path, false);
+        String id = findPathId(path);
 
         if(id != null) {
-            JsonObject json = sendRequest(authorized("GET", DRIVE_URL + "/files")
+            JsonObject json = toJson(sendRequest(authorized("GET", DRIVE_URL + "/files")
                     .addParameter("pageSize", "1000")
                     .addParameter("fields", "files")
-                    .addParameter("q", String.format("'%s' in parents and trashed != true", id)));
+                    .addParameter("q", String.format("'%s' in parents and trashed != true", id))));
 
             try {
 
@@ -126,7 +129,7 @@ public class GoogleDriveUtil {
     }
 
     // Returns filename
-    public String upload(InputStream stream, String path, String name) throws GoogleDriveException {
+    public String upload(String path, String name, InputStream stream) throws GoogleDriveException {
 
         String parentId = findPathId(path, true);
 
@@ -137,11 +140,11 @@ public class GoogleDriveUtil {
         parents.add(parentId);
         meta.add("parents", parents);
 
-        JsonObject json = sendRequest(authorized("POST", UPLOAD_URL + "?uploadType=multipart") // Maybe try resumable in the future
+        JsonObject json = toJson(sendRequest(authorized("POST", UPLOAD_URL + "?uploadType=multipart") // Maybe try resumable in the future
                 .setEntity(MultipartEntityBuilder.create()
                     .addTextBody("meta", meta.toString(), ContentType.APPLICATION_JSON)
                     .addBinaryBody("file", stream, ContentType.APPLICATION_OCTET_STREAM, name)
-                    .build()));
+                    .build())));
 
         try {
             return json.getAsJsonPrimitive("name").getAsString();
@@ -150,8 +153,24 @@ public class GoogleDriveUtil {
         }
     }
 
+    public void downloadFile(String path, OutputStream stream) throws GoogleDriveException, IOException {
+        String id = findPathId(path);
+
+        HttpResponse res = sendRequest(authorized("GET", DRIVE_URL + "/files/" + id)
+                .addParameter("alt", "media"));
+        HttpEntity entity = res.getEntity();
+
+        // Handle API error
+        if(res.getStatusLine().getStatusCode() != 200) {
+            throw new GoogleDriveException(getAPIError(EntityUtils.toString(entity)));
+        }
+
+        // Write to stream
+        entity.writeTo(stream);
+    }
+
     public void deleteFile(String path) throws GoogleDriveException {
-        String id = findPathId(path, false);
+        String id = findPathId(path);
         if(id != null) {
             sendRequest(authorized("DELETE", DRIVE_URL + "/files/" + id));
         }
@@ -160,10 +179,10 @@ public class GoogleDriveUtil {
     // Find file id from a query string
     private String queryId(String query) throws GoogleDriveException {
 
-        JsonObject json = sendRequest(authorized("GET", DRIVE_URL + "/files")
+        JsonObject json = toJson(sendRequest(authorized("GET", DRIVE_URL + "/files")
                 .addParameter("pageSize", "1000")
                 .addParameter("fields", "files")
-                .addParameter("q", query));
+                .addParameter("q", query)));
 
         try {
             JsonArray files = json.getAsJsonArray("files");
@@ -172,6 +191,10 @@ public class GoogleDriveUtil {
         } catch(JsonSyntaxException | NullPointerException e) {}
 
         return null;
+    }
+
+    private String findPathId(String path) throws GoogleDriveException {
+        return findPathId(path, false);
     }
 
     // Find file id of given path, creates new folders if createNew == true
@@ -194,8 +217,8 @@ public class GoogleDriveUtil {
                 parents.add(id);
                 meta.add("parents", parents);
 
-                JsonObject json = sendRequest(authorized("POST", DRIVE_URL + "/files")
-                        .setEntity(new StringEntity(meta.toString(), ContentType.APPLICATION_JSON)));
+                JsonObject json = toJson(sendRequest(authorized("POST", DRIVE_URL + "/files")
+                        .setEntity(new StringEntity(meta.toString(), ContentType.APPLICATION_JSON))));
 
                 try {
                     newId = json.getAsJsonPrimitive("id").getAsString();
@@ -214,31 +237,45 @@ public class GoogleDriveUtil {
         return RequestBuilder.create(method).setUri(url).addHeader("Authorization", "Bearer " + this.token);
     }
 
-    private JsonObject sendRequest(RequestBuilder builder) throws GoogleDriveException {
+    private HttpResponse sendRequest(RequestBuilder rb) throws GoogleDriveException {
         try {
-            HttpEntity entity = http.execute(builder.build()).getEntity();
-            if(entity == null) return null;
-
-            String json = EntityUtils.toString(entity);
-            JsonObject jobj = new JsonParser().parse(json).getAsJsonObject();
-            JsonElement jerr = jobj.get("error");
-
-            // API error
-            if(jerr != null) {
-                JsonPrimitive jmsg;
-                if(jerr.isJsonObject())
-                    jmsg = jerr.getAsJsonObject().getAsJsonPrimitive("message");
-                else
-                    jmsg = jerr.getAsJsonPrimitive();
-                throw new GoogleDriveException(jmsg != null ? jmsg.getAsString() : null);
-            }
-
-            return jobj;
-
-            // Other error
-        } catch(JsonSyntaxException | java.io.IOException e) {
+            return http.execute(rb.build());
+        } catch(IOException e) {
             throw new GoogleDriveException(e);
         }
+    }
+
+    private JsonObject toJson(HttpResponse res) throws GoogleDriveException {
+        try {
+            HttpEntity entity = res.getEntity();
+            if(entity == null) return null;
+
+            String content = EntityUtils.toString(entity);
+
+            if(res.getStatusLine().getStatusCode() != 200)
+                throw new GoogleDriveException(getAPIError(content));
+
+            JsonObject jobj = new JsonParser().parse(content).getAsJsonObject();
+            return jobj;
+
+        // Other error
+        } catch(IOException | JsonSyntaxException e) {
+            throw new GoogleDriveException(e);
+        }
+    }
+
+    private String getAPIError(String content) {
+        JsonObject jobj = new JsonParser().parse(content).getAsJsonObject();
+        JsonElement jerr = jobj.get("error");
+
+        if(jerr != null) {
+            if(jerr.isJsonObject())
+                return jerr.getAsJsonObject().getAsJsonPrimitive("message").getAsString();
+            else
+                return jerr.getAsJsonPrimitive().getAsString();
+        }
+
+        return "";
     }
 
 
