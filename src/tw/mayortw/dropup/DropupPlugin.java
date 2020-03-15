@@ -339,7 +339,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     sender.sendMessage("備份列表：");
                     List<String> files = worldDownloader.listBackups(world);
                     files.stream()
-                        //.map(meta -> meta.getName().replaceAll("\\.[^.]*$", ""))
                         .sorted(Collections.reverseOrder())
                         .skip(skip)
                         .limit(maxLines)
@@ -431,13 +430,11 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             lines.add("{\"text\":\"備份列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
 
                             if(sender.hasPermission("dropup.list")) {
-                                /*
                                 worldDownloader.listBackups(world).stream()
-                                    .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                    .map(m -> m.replaceAll("\\.[^.]*$", ""))
                                     .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
                                     .sorted(Collections.reverseOrder())
                                     .forEachOrdered(lines::add);
-                                    */
                             } else {
                                 lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
                             }
@@ -445,28 +442,24 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                             lines.add(String.format("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", world.getName()));
                             switch(args[2]) {
                                 case "restore":
-                                    /*
                                     if(checkCommandPermission(sender, "dropup.restore")) {
                                         lines.add("{\"text\":\"回復:\\n\",\"color\":\"blue\",\"bold\":true}");
                                         worldDownloader.listBackups(world).stream()
-                                            .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                            .map(m -> m.replaceAll("\\.[^.]*$", ""))
                                             .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du re %s %s\"}}", s, world.getName(), s))
                                             .sorted(Collections.reverseOrder())
                                             .forEachOrdered(lines::add);
                                     }
-                                    */
                                     break;
                                 case "delete":
-                                    /*
                                     if(checkCommandPermission(sender, "dropup.delete")) {
                                         lines.add("{\"text\":\"刪除備份:\\n\",\"color\":\"red\",\"bold\":true}");
                                         worldDownloader.listBackups(world).stream()
-                                            .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                            .map(m -> m.replaceAll("\\.[^.]*$", ""))
                                             .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du delete %s %s\"}}", s, world.getName(), s))
                                             .sorted(Collections.reverseOrder())
                                             .forEachOrdered(lines::add);
                                     }
-                                    */
                                     break;
                             }
                         }
@@ -540,15 +533,13 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 case "restore": case "re":
                 case "delete":
                     if(!sender.hasPermission("dropup.list")) break;
-                    /*
                     World world = getServer().getWorld(args[1]);
                     if(world != null) {
                         return Arrays.asList(worldDownloader.listBackups(world).stream()
-                                .map(m -> m.getName().replaceAll("\\.[^.]*$", ""))
+                                .map(m -> m.replaceAll("\\.[^.]*$", ""))
                                 .filter(s -> s.startsWith(args[2]))
                                 .toArray(String[]::new));
                     }
-                    */
             }
         }
 
