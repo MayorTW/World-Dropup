@@ -37,7 +37,7 @@ public class GoogleDriveUtil {
 
     public String getAuthUrl() {
         return "https://accounts.google.com/o/oauth2/v2/auth"
-            + "?scope=https%3A//www.googleapis.com/auth/drive.file"
+            + "?scope=https%3A//www.googleapis.com/auth/drive"
             + "&access_type=offline&response_type=code"
             + "&include_granted_scopes=true"
             + "&redirect_uri=" + redirectUrl.replaceAll(":", "%3A")
@@ -108,17 +108,18 @@ public class GoogleDriveUtil {
                     .addParameter("q", String.format("'%s' in parents", id)));
 
             try {
+
                 JsonArray files = json.getAsJsonArray("files");
                 for(int i = 0; i < files.size(); i++) {
                     names.add(files.get(i).getAsJsonObject().getAsJsonPrimitive("name").getAsString());
                 }
-                return names;
+
             } catch(NullPointerException e) {
                 throw new GoogleDriveException(e);
             }
         }
 
-        return null;
+        return names;
     }
 
     // Returns filename
