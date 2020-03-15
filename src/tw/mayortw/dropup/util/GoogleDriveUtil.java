@@ -153,7 +153,15 @@ public class GoogleDriveUtil {
         }
     }
 
-    public void downloadFile(String path, OutputStream stream) throws GoogleDriveException, IOException {
+    public void download(String path, OutputStream stream) throws GoogleDriveException, IOException {
+        downloadEntity(path).writeTo(stream);
+    }
+
+    public InputStream download(String path) throws GoogleDriveException, IOException {
+        return downloadEntity(path).getContent();
+    }
+
+    private HttpEntity downloadEntity(String path) throws GoogleDriveException {
         String id = findPathId(path);
 
         HttpResponse res = sendRequest(authorized("GET", DRIVE_URL + "/files/" + id)
@@ -162,11 +170,14 @@ public class GoogleDriveUtil {
 
         // Handle API error
         if(res.getStatusLine().getStatusCode() != 200) {
-            throw new GoogleDriveException(getAPIError(EntityUtils.toString(entity)));
+            String msg = "";
+            try {
+                msg = getAPIError(EntityUtils.toString(entity));
+            } catch(IOException e) {}
+            throw new GoogleDriveException(msg);
         }
 
-        // Write to stream
-        entity.writeTo(stream);
+        return entity;
     }
 
     public void deleteFile(String path) throws GoogleDriveException {

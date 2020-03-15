@@ -4,7 +4,7 @@ package tw.mayortw.dropup;
  */
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -125,36 +125,32 @@ public class WorldDownloader {
 
             // Get the destinations
             File worldDir = world.getWorldFolder();
-            Path dloadPath = worldDir.toPath().resolveSibling(plugin.getConfig().getString("download_path"));
-            File dloadDir = dloadPath.toFile();
-            File extractDir = dloadPath.resolve(world.getName()).toFile();
-            File dloadFile = dloadPath.resolve(world.getName() + ".zip").toFile();
+            File dloadDir = worldDir.toPath()
+                .resolveSibling(plugin.getConfig().getString("download_path"))
+                .resolve(world.getUID().toString())
+                .toFile();
 
             try {
                 // Prepare download destinations
                 if(dloadDir.exists()) {
                     if(dloadDir.isDirectory())
-                        FileUtil.deleteDirectory(dloadPath);
+                        FileUtil.deleteDirectory(dloadDir.toPath());
                     else
                         dloadDir.delete();
                 }
-                extractDir.mkdirs();
+                dloadDir.mkdirs();
 
-                // Download file
-                try(FileOutputStream fileStream = new FileOutputStream(dloadFile)) {
-                    // Save the stream so the speed can be changed later
-                    downloading.stream = new LimitedOutputStream(fileStream, downloadSpeed);
-                    drive.downloadFile(path, downloading.stream);
+                // Download and unzip
+                try(InputStream httpStream = drive.download(path)) {
+                    downloading.stream = new LimitedInputStream(httpStream, downloadSpeed); // Save the stream so the speed can be changed later
+                    FileUtil.unzipFiles(downloading.stream, dloadDir.toPath());
                 }
-
-                // Unzip
-                FileUtil.unzipFiles(dloadFile, extractDir.toPath());
 
                 // When success, delete old world folder and rename new one to old
                 FileUtil.deleteDirectory(worldDir);
-                if(!extractDir.renameTo(worldDir)) {
+                if(!dloadDir.renameTo(worldDir)) {
                     // Cannot rename, have to copy it
-                    FileUtil.copyDirectory(extractDir, worldDir);
+                    FileUtil.copyDirectory(dloadDir, worldDir);
                 }
 
                 // Load the world
@@ -172,7 +168,7 @@ public class WorldDownloader {
                 Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
             } finally {
                 try {
-                    FileUtil.deleteDirectory(dloadFile);
+                    FileUtil.deleteDirectory(dloadDir.toPath());
                 } catch(IOException e) {}
             }
 
@@ -185,7 +181,7 @@ public class WorldDownloader {
 
     private static class DownloadInfo {
         World world;
-        LimitedOutputStream stream;
+        LimitedInputStream stream;
         DownloadInfo(World world) {
             this.world = world;
         }
