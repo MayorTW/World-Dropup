@@ -1,6 +1,6 @@
 name: "World-Dropup"
 main: tw.mayortw.dropup.DropupPlugin
-version: 0.5.5-googledrive
+version: 0.5.6-googledrive
 description: "Back up worlds to Google Drive"
 author: "R26"
 api-version: 1.13
