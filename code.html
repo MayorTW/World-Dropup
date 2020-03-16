@@ -1,13 +1,113 @@
 <!DOCTYPE html>
+<meta charset=UTF-8 />
 <html>
-    <body>
-        <div id="code"></div>
-        <br />
-        <div id="error"</div>
+    <head>
+        <title>Authorization Code</title>
+
+        <style>
+            body {
+                font-family: roboto,'Noto Sans Myanmar UI',arial,sans-serif;
+            }
+
+            .centered {
+                /* https://stackoverflow.com/a/50796306/6023997 */
+                height: 100vh; /* Magic here */
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .code-div {
+                width: 450px;
+                height: 450px;
+                padding: 25px 10px;
+                border: 1px solid #dadce0;
+                border-radius: 8px;
+                text-align: center;
+                font-size: 16px;
+                color: #202124;
+            }
+
+            .info-div {
+                margin: 60px auto 35px;
+            }
+
+            .info-div h1 {
+                font-weight: normal;
+                font-size: 24px;
+            }
+
+            .code-box {
+                background-color: white;
+                border-radius: 4px;
+                border: 1px solid #dadce0;
+                color: #202124;
+                height: 28px;
+                margin: 1px 1px 0 1px;
+                padding: 13px 15px;
+                width: 366px;
+                font-size: 20px;
+            }
+
+            .bottom {
+                position: relative;
+                padding-top: 70px;
+            }
+
+            .copy-button {
+                position: absolute;
+                right: 25px;
+                width: 88px;
+                height: 36px;
+                line-height: 36px;
+                display: block;
+                background: #1a73e8;
+                color: #fff;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            .alert {
+                position: relative;
+                margin: 5px 28px;
+                color: #d93025;
+                text-align: left;
+            }
+        </style>
+
         <script>
-            url = new URL(location.href);
-            document.getElementById("code").innerText = url.searchParams.get("code");
-            document.getElementById("error").innerText = url.searchParams.get("error");
+            function copytext(e) {
+                document.getElementById('code').select();
+                document.execCommand('copy');
+            }
+            window.addEventListener('load', function() {
+
+                url = new URL(location.href);
+                document.getElementById("code").value = url.searchParams.get("code");
+
+                let error = url.searchParams.get('error');
+                if(error) {
+                    let alertDiv = document.getElementById("error");
+                    alertDiv.innerText = "錯誤：" + error;
+                }
+            });
         </script>
+
+    <body>
+        <div class='centered'>
+            <div class='code-div'>
+                <div class='info-div'>
+                    <h1>Google Drive</h1>
+                    使用 dropup signin 指令並輸入此登入碼來登入。
+                </div>
+                <input id='code' class='code-box' type='text' readonly />
+                <div id='error' class='alert'></div>
+                <div class='bottom'>
+                    <div class='copy-button' onclick='copytext()'>
+                        複製
+                    <div/>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
