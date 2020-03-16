@@ -52,6 +52,13 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
         driveSignIn();
         pluginManager.registerEvents(this, this);
         pluginManager.registerEvents(blockLogger, this);
+
+        String disabledReason = getConfig().getString("disabled_reason");
+        if(disabledReason != null) {
+            this.disabled = true;
+            this.disabledReason = disabledReason;
+            getLogger().warning("Auto backup is disabled. Disabled reason: " + disabledReason);
+        }
     }
 
     private void driveSignIn() {
@@ -298,11 +305,14 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 sender.sendMessage("已暫停自動備份。原因： " + disabledReason);
                 disabledReason += " - " + sender.getName();
 
+                getConfig().set("disabled_reason", disabledReason);
+
                 return true;
 
             case "enable":
                 if(!checkCommandPermission(sender, "dropup.disable")) return true;
                 disabled = false;
+                getConfig().set("disabled_reason", null);
                 sender.sendMessage("已恢復自動備份");
                 return true;
 
@@ -382,6 +392,12 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                     sender.sendMessage("§e    " + restoring.getName());
                 else
                     sender.sendMessage("    無");
+
+                if(!disabled) {
+                    sender.sendMessage("自動備份已啟用");
+                } else {
+                    sender.sendMessage("自動備份已停用，原因： " + disabledReason);
+                }
 
                 return true;
 
