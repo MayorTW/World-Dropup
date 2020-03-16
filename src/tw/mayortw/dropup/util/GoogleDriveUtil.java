@@ -30,6 +30,7 @@ public class GoogleDriveUtil {
     private String redirectUrl = "https://mayortw.github.io/World-Dropup//code.html";
     private String token;
     private String refreshToken;
+    private long tokenExpire;
 
     private HttpClient http = HttpClientBuilder.create().build();
 
@@ -80,6 +81,8 @@ public class GoogleDriveUtil {
 
         try {
             this.token = json.getAsJsonPrimitive("access_token").getAsString();
+            this.tokenExpire = json.getAsJsonPrimitive("expires_in").getAsLong()
+                * 1000 + System.currentTimeMillis() - 6000; // Will refresh token 1 minute before expire
         } catch(NullPointerException e) {
             throw new GoogleDriveException(e);
         }
@@ -244,7 +247,11 @@ public class GoogleDriveUtil {
         return id;
     }
 
-    private RequestBuilder authorized(String method, String url) {
+    private RequestBuilder authorized(String method, String url) throws GoogleDriveException {
+        if(System.currentTimeMillis() >= tokenExpire) {
+            // Login expired, attempt to refresh token
+            loginToken(refreshToken);
+        }
         return RequestBuilder.create(method).setUri(url).addHeader("Authorization", "Bearer " + this.token);
     }
 

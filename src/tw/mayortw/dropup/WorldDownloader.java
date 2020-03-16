@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.bukkit.Bukkit;
@@ -92,7 +93,7 @@ public class WorldDownloader {
             return drive.listFileNames(drivePath);
         } catch(GoogleDriveUtil.GoogleDriveException e) {
             plugin.getLogger().warning("Cannot get backup list: " + e.getMessage());
-            return null;
+            return Collections.EMPTY_LIST;
         }
     }
 

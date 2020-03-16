@@ -488,16 +488,34 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "signin":
                 if(!checkCommandPermission(sender, "dropup.signin")) return true;
                 if(args.length <= 1) {
-                    sender.sendMessage("請到以下網址取得認証碼，然後用 /dropup signin <認証碼> 登入");
-                    sender.sendMessage(drive.getAuthUrl());
+                    boolean loggedIn = false;
+
+                    String token = getConfig().getString("drive_token");
+                    if(token != null) {
+                        sender.sendMessage("自動登入中");
+                        try {
+                            drive.loginToken(token);
+                            loginSuccess();
+                            sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
+                            loggedIn = true;
+                        } catch(GoogleDriveUtil.GoogleDriveException e) {
+                            sender.sendMessage("自動登入失敗： " + e.getMessage());
+                        }
+                    }
+
+                    if(!loggedIn) {
+                        sender.sendMessage("請到以下網址取得登入碼，然後用 /dropup signin <認証碼> 登入");
+                        sender.sendMessage(drive.getAuthUrl());
+                    }
+
                     return true;
                 }
 
                 try {
                     drive.loginCode(args[1].trim());
                     getConfig().set("drive_token", drive.getToken());
-                    sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
                     loginSuccess();
+                    sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
                 } catch(GoogleDriveUtil.GoogleDriveException e) {
                     sender.sendMessage("無法登入 Google Drive: " + e.getMessage());
                 }
