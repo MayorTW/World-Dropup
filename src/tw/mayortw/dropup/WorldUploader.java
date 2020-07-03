@@ -273,12 +273,12 @@ public class WorldUploader implements Runnable {
                 } catch(IOException e) {
                     plugin.getLogger().warning("Cannot delete temporary folder: " + e.getMessage());
                 }
-            }
 
-            // Tell whoever's waiting that it has finished
-            synchronized(this) {
-                uploading = null;
-                this.notifyAll();
+                // Tell whoever's waiting that it has finished
+                synchronized(this) {
+                    uploading = null;
+                    this.notifyAll();
+                }
             }
         }
         plugin.getLogger().info("Backup worker thread stopped");

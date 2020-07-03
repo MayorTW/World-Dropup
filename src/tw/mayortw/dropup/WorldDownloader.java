@@ -178,11 +178,11 @@ public class WorldDownloader {
                         plugin.getLogger().warning("Cannot delete world download folder: " + e);
                     }
                 }
-            }
 
-            downloading = null;
-            synchronized(lock) {
-                lock.notify();
+                synchronized(lock) {
+                    downloading = null;
+                    lock.notify();
+                }
             }
         });
     }
