@@ -236,7 +236,7 @@ public class WorldUploader implements Runnable {
             }
 
             // Backup
-            Bukkit.broadcastMessage(String.format("[§e%s§r] §f正在備份 §a%s", plugin.getName(), world.getName()));
+            broadcastFromMain(String.format("[§e%s§r] §f正在備份 §a%s", plugin.getName(), world.getName()));
 
             Path tempPath = null;
             try {
@@ -259,11 +259,11 @@ public class WorldUploader implements Runnable {
 
                     // Finish backup
                     deleteOldBackups(world);
-                    Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), String.format("%s/%s", uploadPath, uploadName)));
+                    broadcastFromMain(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), String.format("%s/%s", uploadPath, uploadName)));
                 }
 
             } catch(GoogleDriveUtil.GoogleDriveException | IOException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
+                broadcastFromMain(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
                 e.printStackTrace();
             } finally {
                 // Delete temp dir
@@ -303,6 +303,18 @@ public class WorldUploader implements Runnable {
 
     public static interface Callback {
         public void preWorldBackup(World world);
+    }
+
+    // Only call this from async thread
+    private void broadcastFromMain(String msg) {
+        try {
+            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                Bukkit.broadcastMessage(msg);
+                return null;
+            }).get();
+        } catch(InterruptedException | ExecutionException e) {
+            System.out.println(msg);
+        }
     }
 
     // POD to store world and its uploading stream

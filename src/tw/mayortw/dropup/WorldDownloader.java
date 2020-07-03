@@ -122,7 +122,7 @@ public class WorldDownloader {
 
         // Run in async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Bukkit.broadcastMessage(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
+            broadcastFromMain(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
 
             // Get the destinations
             File worldDir = world.getWorldFolder();
@@ -154,10 +154,10 @@ public class WorldDownloader {
                     FileUtil.copyDirectory(dloadDir, worldDir);
                 }
 
-                Bukkit.broadcastMessage(String.format("[§e%s] §f已下載 §a%s", plugin.getName(), path));
+                broadcastFromMain(String.format("[§e%s] §f已下載 §a%s", plugin.getName(), path));
 
             } catch(IOException | GoogleDriveUtil.GoogleDriveException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
+                broadcastFromMain(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
             } finally {
 
                 // Load the world
@@ -185,6 +185,18 @@ public class WorldDownloader {
                 }
             }
         });
+    }
+
+    // Only call this from async thread
+    private void broadcastFromMain(String msg) {
+        try {
+            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                Bukkit.broadcastMessage(msg);
+                return null;
+            }).get();
+        } catch(InterruptedException | ExecutionException e) {
+            System.out.println(msg);
+        }
     }
 
     private static class DownloadInfo {
