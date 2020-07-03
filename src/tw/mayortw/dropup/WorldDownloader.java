@@ -154,23 +154,30 @@ public class WorldDownloader {
                     FileUtil.copyDirectory(dloadDir, worldDir);
                 }
 
-                // Load the world
-                try {
-                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                        if(mvWorldManager.loadWorld(world.getName()))
-                            Bukkit.broadcastMessage(String.format("[§e%s] §f已從 §a%s §f回復 §a%s", plugin.getName(), path, world.getName()));
-                        else
-                            Bukkit.broadcastMessage(String.format("[§e%s] §f世界 §a%s §f已下載，但無法載入", plugin.getName(), world.getName()));
-                        return null;
-                    }).get();
-                } catch(InterruptedException | ExecutionException e) {}
+                Bukkit.broadcastMessage(String.format("[§e%s] §f已下載 §a%s", plugin.getName(), path));
 
             } catch(IOException | GoogleDriveUtil.GoogleDriveException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
             } finally {
+
+                // Load the world
                 try {
-                    FileUtil.deleteDirectory(dloadDir.toPath());
-                } catch(IOException e) {}
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        if(mvWorldManager.loadWorld(world.getName()))
+                            Bukkit.broadcastMessage(String.format("[§e%s] §f已回復 §a%s", plugin.getName(), world.getName()));
+                        else
+                            Bukkit.broadcastMessage(String.format("[§e%s] §f無法載入世界 §a%s", plugin.getName(), world.getName()));
+                        return null;
+                    }).get();
+                } catch(InterruptedException | ExecutionException e) {}
+
+                if(dloadDir.exists()) {
+                    try {
+                        FileUtil.deleteDirectory(dloadDir.toPath());
+                    } catch(IOException e) {
+                        plugin.getLogger().warning("Cannot delete world download folder: " + e);
+                    }
+                }
             }
 
             downloading = null;

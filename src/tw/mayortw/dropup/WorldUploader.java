@@ -264,6 +264,7 @@ public class WorldUploader implements Runnable {
 
             } catch(GoogleDriveUtil.GoogleDriveException | IOException e) {
                 Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
+                e.printStackTrace();
             } finally {
                 // Delete temp dir
                 try {

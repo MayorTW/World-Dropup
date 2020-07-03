@@ -50,7 +50,7 @@ public class LimitedOutputStream extends FilterOutputStream {
      * returns true when the byte is written
      */
     private boolean tryWrite(int b) throws IOException {
-        if(limit < 0) {
+        if(limit <= 0) {
             super.write(b); // negative limit = no limit
             return true;
         }

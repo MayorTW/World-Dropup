@@ -80,7 +80,7 @@ public class LimitedInputStream extends FilterInputStream {
      * returns -2 if read should be waiting
      */
     private int tryRead() throws IOException {
-        if(limit < 0) {
+        if(limit <= 0) {
             return super.read(); // negative limit = no limit
         }
 
