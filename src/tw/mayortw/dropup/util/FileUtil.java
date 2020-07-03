@@ -83,8 +83,9 @@ public class FileUtil {
 
         while((entry = zipIn.getNextEntry()) != null) {
 
-            File file = dest.resolve(entry.getName()).toFile();
-            if(entry.isDirectory()) {
+            String name = entry.getName().replaceAll("\\\\", "/"); // Some zip has backslash
+            File file = dest.resolve(name).toFile();
+            if(name.endsWith("/")) {
                 file.mkdir();
             } else {
                 try(FileOutputStream out = new FileOutputStream(file)) {
