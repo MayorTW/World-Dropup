@@ -148,7 +148,7 @@ public class WorldDownloader {
 
         // Run in async
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Bukkit.broadcastMessage(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
+            broadcastFromMain(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
 
             // Get the destinations
             File worldDir = world.getWorldFolder();
@@ -183,12 +183,12 @@ public class WorldDownloader {
                     FileUtil.deleteDirectory(dloadPath);
                 }
 
-                Bukkit.broadcastMessage(String.format("[§e%s] §f已下載 §a%s", plugin.getName(), dbxPath));
+                broadcastFromMain(String.format("[§e%s] §f已下載 §a%s", plugin.getName(), dbxPath));
 
             } catch(IOException | DbxException | IllegalArgumentException e) {
                 // Retries is handled already for download so don't need to do it
 
-                Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
+                broadcastFromMain(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
                 e.printStackTrace();
 
                 if(e instanceof DownloadErrorException) {
@@ -208,7 +208,7 @@ public class WorldDownloader {
                         return null;
                     }).get();
                 } catch(ExecutionException | InterruptedException e) {
-                    Bukkit.broadcastMessage(String.format("[§e%s] §f載入中斷： §c%s", plugin.getName(), e.getMessage()));
+                    broadcastFromMain(String.format("[§e%s] §f載入中斷： §c%s", plugin.getName(), e.getMessage()));
                     e.printStackTrace();
                 }
 
@@ -227,6 +227,18 @@ public class WorldDownloader {
                 }
             }
         });
+    }
+
+    // Only call this from async thread
+    private void broadcastFromMain(String msg) {
+        try {
+            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                Bukkit.broadcastMessage(msg);
+                return null;
+            }).get();
+        } catch(InterruptedException | ExecutionException e) {
+            System.out.println(msg);
+        }
     }
 
     private static class DownloadInfo {

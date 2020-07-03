@@ -263,13 +263,13 @@ public class WorldUploader implements Runnable {
             }
 
             // Backup
-            Bukkit.broadcastMessage(String.format("[§e%s§r] §f正在備份 §a%s", plugin.getName(), world.getName()));
+            broadcastFromMain(String.format("[§e%s§r] §f正在備份 §a%s", plugin.getName(), world.getName()));
 
             DropboxUploadSession session;
             try {
                 session = new DropboxUploadSession(dbxClient);
             } catch(DbxException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
+                broadcastFromMain(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
                 return;
             }
 
@@ -278,7 +278,7 @@ public class WorldUploader implements Runnable {
                     session.nextSession(offset);
                     return session.out;
                 } catch(DbxException e) {
-                    Bukkit.broadcastMessage(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
+                    broadcastFromMain(String.format("[§e%s§r] §fDropbox錯誤： §c%s", plugin.getName(), e.getMessage()));
                     e.printStackTrace();
                 }
                 return null; // And it triggers NullPointerException
@@ -307,10 +307,10 @@ public class WorldUploader implements Runnable {
                 // Clean old saves
                 deleteOldBackups(world);
 
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
+                broadcastFromMain(String.format("[§e%s§r] §a%s §f已備份到 §a%s", plugin.getName(), world.getName(), uploaded));
 
             } catch(IOException | NullPointerException | IllegalArgumentException | DbxException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
+                broadcastFromMain(String.format("[§e%s§r] §f備份錯誤： §c%s", plugin.getName(), e.getMessage()));
                 e.printStackTrace();
             } finally {
                 // Delete temp dir
@@ -350,6 +350,18 @@ public class WorldUploader implements Runnable {
 
     public static interface Callback {
         public void preWorldBackup(World world);
+    }
+
+    // Only call this from async thread
+    private void broadcastFromMain(String msg) {
+        try {
+            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                Bukkit.broadcastMessage(msg);
+                return null;
+            }).get();
+        } catch(InterruptedException | ExecutionException e) {
+            System.out.println(msg);
+        }
     }
 
     // POD to store world and its uploading stream
