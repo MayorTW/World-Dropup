@@ -150,19 +150,19 @@ public class WorldDownloader {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             Bukkit.broadcastMessage(String.format("[§e%s] §f正在回復 §a%s", plugin.getName(), world.getName()));
 
+            // Get the destinations
+            File worldDir = world.getWorldFolder();
+            Path worldPath = worldDir.toPath();
+            Path dloadPath = worldPath
+                .resolveSibling(plugin.getConfig().getString("download_path"))
+                .resolve(world.getName());
+            File dloadDir = dloadPath.toFile();
+
             try(DbxDownloader<FileMetadata> downloader = dbxClient.files().download(dbxPath);
                     LimitedInputStream in = new LimitedInputStream(downloader.getInputStream(), downloadSpeed)) {
 
                 // Save the stream so the speed can be changed later
                 downloading.stream = in;
-
-                // Get the destinations
-                File worldDir = world.getWorldFolder();
-                Path worldPath = worldDir.toPath();
-                Path dloadPath = worldPath
-                    .resolveSibling(plugin.getConfig().getString("download_path"))
-                    .resolve(world.getName());
-                File dloadDir = dloadPath.toFile();
 
                 // Remove download directory if there's one
                 if(dloadDir.isDirectory())
@@ -183,20 +183,42 @@ public class WorldDownloader {
                     FileUtil.deleteDirectory(dloadPath);
                 }
 
-                Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                    if(mvWorldManager.loadWorld(world.getName()))
-                        Bukkit.broadcastMessage(String.format("[§e%s] §f已從 §a%s §f回復 §a%s", plugin.getName(), dbxPath, world.getName()));
-                    else
-                        Bukkit.broadcastMessage(String.format("[§e%s] §f世界 §a%s §f已下載，但無法載入", plugin.getName(), world.getName()));
-                    return null;
-                }).get();
+                Bukkit.broadcastMessage(String.format("[§e%s] §f已下載 §a%s", plugin.getName(), dbxPath));
 
-            } catch(IOException | DbxException | ExecutionException | InterruptedException | IllegalArgumentException e) {
-                Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
+            } catch(IOException | DbxException | IllegalArgumentException e) {
                 // Retries is handled already for download so don't need to do it
 
-                if(!(e instanceof DownloadErrorException)) {
+                Bukkit.broadcastMessage(String.format("[§e%s] §f回復錯誤： §c%s", plugin.getName(), e.getMessage()));
+                e.printStackTrace();
+
+                if(e instanceof DownloadErrorException) {
                     plugin.getLogger().warning("Dropbox error when downloading " + dbxPath + ": " + e.getMessage());
+                }
+
+            } finally {
+
+                // Load the world back
+                try {
+                    Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                        Bukkit.broadcastMessage(String.format("[§e%s] §f正在載入 §a%s", plugin.getName(), world.getName()));
+                        if(mvWorldManager.loadWorld(world.getName()))
+                            Bukkit.broadcastMessage(String.format("[§e%s] §f已載入 §a%s", plugin.getName(), world.getName()));
+                        else
+                            Bukkit.broadcastMessage(String.format("[§e%s] §f無法載入世界 §a%s", plugin.getName(), world.getName()));
+                        return null;
+                    }).get();
+                } catch(ExecutionException | InterruptedException e) {
+                    Bukkit.broadcastMessage(String.format("[§e%s] §f載入中斷： §c%s", plugin.getName(), e.getMessage()));
+                    e.printStackTrace();
+                }
+
+                // Delete download directory
+                if(Files.exists(dloadPath)) {
+                    try {
+                        FileUtil.deleteDirectory(dloadPath);
+                    } catch(IOException e) {
+                        plugin.getLogger().warning("Cannot delete world download folder: " + e);
+                    }
                 }
             }
 
