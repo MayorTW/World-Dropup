@@ -231,14 +231,10 @@ public class WorldDownloader {
 
     // Only call this from async thread
     private void broadcastFromMain(String msg) {
-        try {
-            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                Bukkit.broadcastMessage(msg);
-                return null;
-            }).get();
-        } catch(InterruptedException | ExecutionException e) {
-            System.out.println(msg);
-        }
+        Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+            Bukkit.broadcastMessage(msg);
+            return null;
+        });
     }
 
     private static class DownloadInfo {

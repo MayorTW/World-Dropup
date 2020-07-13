@@ -354,14 +354,10 @@ public class WorldUploader implements Runnable {
 
     // Only call this from async thread
     private void broadcastFromMain(String msg) {
-        try {
-            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                Bukkit.broadcastMessage(msg);
-                return null;
-            }).get();
-        } catch(InterruptedException | ExecutionException e) {
-            System.out.println(msg);
-        }
+        Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+            Bukkit.broadcastMessage(msg);
+            return null;
+        });
     }
 
     // POD to store world and its uploading stream
