@@ -94,10 +94,54 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if(args.length < 1) return false;
-        if(!drive.loggedIn() && !args[0].equalsIgnoreCase("signin")) {
+
+        // Handler signing in first
+        if(args[0].equalsIgnoreCase("signin")) {
+            if(!checkCommandPermission(sender, "dropup.signin")) return true;
+            if(args.length <= 1) {
+                boolean loggedIn = false;
+
+                String token = getConfig().getString("drive_token");
+                if(token != null) {
+                    sender.sendMessage("自動登入中");
+                    try {
+                        drive.loginToken(token);
+                        loginSuccess();
+                        sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
+                        loggedIn = true;
+                    } catch(GoogleDriveUtil.GoogleDriveException e) {
+                        sender.sendMessage("自動登入失敗： " + e.getMessage());
+                    }
+                }
+
+                if(!loggedIn) {
+                    sender.sendMessage("請到以下網址取得登入碼，然後用 /dropup signin <認証碼> 登入");
+                    sender.sendMessage(drive.getAuthUrl());
+                }
+
+                return true;
+            }
+
+            try {
+                drive.loginCode(args[1].trim());
+                getConfig().set("drive_token", drive.getToken());
+                loginSuccess();
+                sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
+            } catch(GoogleDriveUtil.GoogleDriveException e) {
+                sender.sendMessage("無法登入 Google Drive: " + e.getMessage());
+                loginFailed();
+            }
+            return true;
+        } else if(!drive.loggedIn()) {
             sender.sendMessage("Google Drive 尚未登入，請用 /dropup signin 來登入");
             return true;
         }
+
+        if(worldUploader == null || worldDownloader == null) {
+            sender.sendMessage("插件錯誤，試試重新登入");
+            return true;
+        }
+
         switch(args[0].toLowerCase()) {
             case "backup":
             case "bk":
@@ -485,42 +529,6 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                 }
                 return true;
 
-            case "signin":
-                if(!checkCommandPermission(sender, "dropup.signin")) return true;
-                if(args.length <= 1) {
-                    boolean loggedIn = false;
-
-                    String token = getConfig().getString("drive_token");
-                    if(token != null) {
-                        sender.sendMessage("自動登入中");
-                        try {
-                            drive.loginToken(token);
-                            loginSuccess();
-                            sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
-                            loggedIn = true;
-                        } catch(GoogleDriveUtil.GoogleDriveException e) {
-                            sender.sendMessage("自動登入失敗： " + e.getMessage());
-                        }
-                    }
-
-                    if(!loggedIn) {
-                        sender.sendMessage("請到以下網址取得登入碼，然後用 /dropup signin <認証碼> 登入");
-                        sender.sendMessage(drive.getAuthUrl());
-                    }
-
-                    return true;
-                }
-
-                try {
-                    drive.loginCode(args[1].trim());
-                    getConfig().set("drive_token", drive.getToken());
-                    loginSuccess();
-                    sender.sendMessage("已登入到 " + drive.getLoginName() + " 的 Google Drive");
-                } catch(GoogleDriveUtil.GoogleDriveException e) {
-                    sender.sendMessage("無法登入 Google Drive: " + e.getMessage());
-                }
-                return true;
-
             default:
                 return false;
         }
@@ -587,10 +595,12 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
     @Override
     public void onWorldChanged(World world, int changeCount) {
-        if(!disabled && changeCount > 0)
-            worldUploader.backupWorldLater(world);
-        else
-            worldUploader.stopBackupWorldLater(world);
+        if(worldUploader != null) {
+            if(!disabled && changeCount > 0)
+                worldUploader.backupWorldLater(world);
+            else
+                worldUploader.stopBackupWorldLater(world);
+        }
     }
 
     public void onDisable() {
