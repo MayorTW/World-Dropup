@@ -3,12 +3,15 @@ package tw.mayortw.dropup.util;
 import org.bukkit.Bukkit;
 
 public class VersionUtil {
+
+    private static final String SPLIT_PATTERN = "[\\.\\-]";
+
     /*
      * Check if server is at least ver version
      */
     public static boolean atLeast(String verString) {
-        String[] compVer = verString.split("\\.");
-        String[] servVer = Bukkit.getBukkitVersion().split("\\.");
+        String[] compVer = verString.split(SPLIT_PATTERN);
+        String[] servVer = Bukkit.getBukkitVersion().split(SPLIT_PATTERN);
 
         for(int i = 0; i < compVer.length; i++) {
             if(i >= servVer.length) return false;

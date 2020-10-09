@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.Location;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
@@ -462,7 +463,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                                     if(alias.length() > maxLength) {
                                         alias = alias.substring(0, maxLength - 6) + "…" + alias.substring(alias.length() - 6);
                                     }
-                                    alias = org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(alias);
+                                    alias = BookUtil.escapeString(alias);
 
                                     return String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", alias, name);
                                 })
@@ -523,7 +524,8 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         }
                     }
 
-                    BookUtil.openBook(BookUtil.createBook(lines), (Player) sender);
+                    ItemStack book = BookUtil.createBook(lines);
+                    ((Player) sender).openBook(book);
                 } else {
                     sender.sendMessage("只有玩家才能使用");
                 }

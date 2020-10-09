@@ -48,6 +48,17 @@ public class BookUtil {
         return initialised;
     }
 
+    public static String escapeString(String str) {
+        return str
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\b", "\\b")
+            .replace("\f", "\\f")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t");
+    }
+
     /**
      * Open a "Virtual" Book ItemStack.
      * @param i Book ItemStack.
@@ -134,6 +145,8 @@ public class BookUtil {
 
         ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
         BookMeta meta = (BookMeta) book.getItemMeta();
+        meta.setTitle("title");
+        meta.setAuthor("author");
         BookUtil.setPages(meta, pages);
         book.setItemMeta(meta);
         return book;
