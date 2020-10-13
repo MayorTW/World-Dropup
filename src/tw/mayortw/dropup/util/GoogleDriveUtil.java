@@ -46,6 +46,7 @@ public class GoogleDriveUtil {
             + "?scope=https%3A//www.googleapis.com/auth/drive"
             + "&access_type=offline&response_type=code"
             + "&include_granted_scopes=true"
+            + "&prompt=consent"
             + "&redirect_uri=" + redirectUrl.replaceAll(":", "%3A")
             + "&client_id=" + Secret.CLIENT_ID;
     }
@@ -70,6 +71,7 @@ public class GoogleDriveUtil {
 
     // Login using refresh token
     public void loginToken(String token) throws GoogleDriveException {
+        if(token == null) return;
 
         this.refreshToken = token;
 
@@ -284,7 +286,10 @@ public class GoogleDriveUtil {
 
     private String getAPIError(String content) {
         JsonObject jobj = new JsonParser().parse(content).getAsJsonObject();
-        JsonElement jerr = jobj.get("error");
+
+        JsonElement jerr = jobj.get("error_description");
+        if(jerr == null)
+            jerr = jobj.get("error");
 
         if(jerr != null) {
             if(jerr.isJsonObject())
