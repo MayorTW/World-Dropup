@@ -303,6 +303,8 @@ public class GoogleDriveUtil {
 
 
     public static class GoogleDriveException extends Exception {
+        static private final long serialVersionUID = 0;
+
         public GoogleDriveException(String msg) {
             super(msg);
         }

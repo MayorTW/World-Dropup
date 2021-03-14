@@ -93,7 +93,7 @@ public class WorldDownloader {
             return drive.listFileNames(drivePath);
         } catch(GoogleDriveUtil.GoogleDriveException e) {
             plugin.getLogger().warning("Cannot get backup list: " + e.getMessage());
-            return Collections.EMPTY_LIST;
+            return Collections.emptyList();
         }
     }
 

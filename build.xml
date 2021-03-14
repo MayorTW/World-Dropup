@@ -29,7 +29,7 @@
         <mkdir dir="${build}" />
         <depend srcdir="${src}" destdir="${build}" cache="depcache" closure="yes"/>
         <javac srcdir="${src}" destdir="${build}" classpathref="classpath" includeantruntime="false">
-            <compilerarg value="-Xlint:deprecation" />
+            <compilerarg value="-Xlint:all" />
         </javac>
     </target>
 

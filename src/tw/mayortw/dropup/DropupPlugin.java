@@ -6,7 +6,9 @@ package tw.mayortw.dropup;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.LinkedList;
 
 import org.bukkit.block.BlockState;
 import org.bukkit.command.*;
@@ -16,16 +18,22 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.World;
+
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 
 import com.onarandombox.MultiverseCore.api.MVPlugin;
 import com.onarandombox.MultiverseCore.api.MVWorldManager;
 import com.onarandombox.MultiverseCore.api.MultiverseWorld;
 
-import tw.mayortw.dropup.util.BookUtil;
 import tw.mayortw.dropup.util.GoogleDriveUtil;
 
 public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Callback {
@@ -395,7 +403,7 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         .sorted(Collections.reverseOrder())
                         .skip(skip)
                         .limit(maxLines)
-                        .forEach(name -> {
+                        .forEachOrdered(name -> {
                             sender.sendMessage(name);
                         });
                     if(files.size() - skip > maxLines)
@@ -450,24 +458,30 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
             case "me":
                 if(!checkCommandPermission(sender, "dropup.list")) return true;
                 if(sender instanceof Player) {
-                    ArrayList<String> lines = new ArrayList<>();
+                    LinkedList<TextComponent> lines = new LinkedList<>();
 
                     if(args.length <= 1 && mvWorldManager != null) {
-                            lines.add("{\"text\":\"世界列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
-                            mvWorldManager.getMVWorlds().stream()
-                                .map(world -> {
-                                    String name = world.getName();
-                                    String alias = world.getAlias();
+                        TextComponent line = new TextComponent("世界列表:\n");
+                        line.setColor(ChatColor.LIGHT_PURPLE);
+                        line.setBold(true);
+                        lines.add(line);
 
-                                    final int maxLength = 12;
-                                    if(alias.length() > maxLength) {
-                                        alias = alias.substring(0, maxLength - 6) + "…" + alias.substring(alias.length() - 6);
-                                    }
-                                    alias = BookUtil.escapeString(alias);
+                        mvWorldManager.getMVWorlds().stream()
+                            .map(world -> {
+                                String name = world.getName();
+                                String alias = world.getAlias();
 
-                                    return String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", alias, name);
-                                })
-                                .sorted().forEach(lines::add);
+                                final int maxLength = 12;
+                                if(alias.length() > maxLength) {
+                                    alias = alias.substring(0, maxLength - 6) + "…" + alias.substring(alias.length() - 6);
+                                }
+
+                                TextComponent line1 = new TextComponent(alias + "\n");
+                                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du me " + name));
+                                return line1;
+                            })
+                            .sorted(Comparator.comparing(TextComponent::getText))
+                            .forEachOrdered(lines::add);
                     } else {
                         World world = getServer().getWorld(args[1]);
                         if(world == null) {
@@ -477,46 +491,95 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
 
                         if(args.length <= 2) {
 
-                            lines.add("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me\"}}");
+                            TextComponent line = new TextComponent("返回\n");
+                            line.setColor(ChatColor.DARK_GRAY);
+                            line.setBold(true);
+                            line.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du me"));
+                            lines.add(line);
 
-                            if(sender.hasPermission("dropup.backup"))
-                                lines.add(String.format("{\"text\":\"立刻備份\\n\",\"color\":\"dark_green\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du bk %s\"}}", world.getName()));
-                            if(sender.hasPermission("dropup.restore"))
-                                lines.add(String.format("{\"text\":\"回復模式\\n\",\"color\":\"blue\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s restore\"}}", world.getName()));
-                            if(sender.hasPermission("dropup.delete"))
-                                lines.add(String.format("{\"text\":\"刪除模式\\n\",\"color\":\"red\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s delete\"}}", world.getName()));
+                            if(sender.hasPermission("dropup.backup")) {
+                                line = new TextComponent("立刻備份\n");
+                                line.setColor(ChatColor.DARK_GREEN);
+                                line.setBold(true);
+                                line.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du bk " + world.getName()));
+                                lines.add(line);
+                            }
 
-                            lines.add("{\"text\":\"備份列表:\\n\",\"color\":\"light_purple\",\"bold\":true}");
+                            if(sender.hasPermission("dropup.restore")) {
+                                line = new TextComponent("回復模式\n");
+                                line.setColor(ChatColor.BLUE);
+                                line.setBold(true);
+                                line.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du me " + world.getName() + " restore"));
+                                lines.add(line);
+                            }
+
+                            if(sender.hasPermission("dropup.delete")) {
+                                line = new TextComponent("刪除模式\n");
+                                line.setColor(ChatColor.RED);
+                                line.setBold(true);
+                                line.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du me " + world.getName() + " delete"));
+                                lines.add(line);
+                            }
+
+                            line = new TextComponent("備份列表:\n");
+                            line.setColor(ChatColor.LIGHT_PURPLE);
+                            line.setBold(true);
+                            lines.add(line);
 
                             if(sender.hasPermission("dropup.list")) {
                                 worldDownloader.listBackups(world).stream()
                                     .map(m -> m.replaceAll("\\.[^.]*$", ""))
-                                    .map(s -> String.format("{\"text\":\"%s\\n\"}", s))
                                     .sorted(Collections.reverseOrder())
+                                    .map(s -> new TextComponent(s + "\n"))
                                     .forEachOrdered(lines::add);
                             } else {
-                                lines.add("{\"text\":\"沒有權限\\n\",\"color\":\"red\",\"bold\":true}");
+                                line = new TextComponent("沒有權限\n");
+                                line.setColor(ChatColor.RED);
+                                line.setBold(true);
+                                lines.add(line);
                             }
                         } else {
-                            lines.add(String.format("{\"text\":\"返回\\n\",\"color\":\"dark_gray\",\"bold\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du me %s\"}}", world.getName()));
+
+                            TextComponent line = new TextComponent("返回\n");
+                            line.setColor(ChatColor.DARK_GRAY);
+                            line.setBold(true);
+                            line.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du me " + world.getName()));
+                            lines.add(line);
+
                             switch(args[2]) {
                                 case "restore":
                                     if(checkCommandPermission(sender, "dropup.restore")) {
-                                        lines.add("{\"text\":\"回復:\\n\",\"color\":\"blue\",\"bold\":true}");
+                                        line = new TextComponent("回復:\n");
+                                        line.setColor(ChatColor.BLUE);
+                                        line.setBold(true);
+                                        lines.add(line);
+
                                         worldDownloader.listBackups(world).stream()
                                             .map(m -> m.replaceAll("\\.[^.]*$", ""))
-                                            .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du re %s %s\"}}", s, world.getName(), s))
                                             .sorted(Collections.reverseOrder())
+                                            .map(s -> {
+                                                TextComponent line1 = new TextComponent(s + "\n");
+                                                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du re " + world.getName() + " " + s));
+                                                return line1;
+                                            })
                                             .forEachOrdered(lines::add);
                                     }
                                     break;
                                 case "delete":
                                     if(checkCommandPermission(sender, "dropup.delete")) {
-                                        lines.add("{\"text\":\"刪除備份:\\n\",\"color\":\"red\",\"bold\":true}");
+                                        line = new TextComponent("刪除備份:\n");
+                                        line.setColor(ChatColor.RED);
+                                        line.setBold(true);
+                                        lines.add(line);
+
                                         worldDownloader.listBackups(world).stream()
                                             .map(m -> m.replaceAll("\\.[^.]*$", ""))
-                                            .map(s -> String.format("{\"text\":\"%s\\n\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/du delete %s %s\"}}", s, world.getName(), s))
                                             .sorted(Collections.reverseOrder())
+                                            .map(s -> {
+                                                TextComponent line1 = new TextComponent(s + "\n");
+                                                line1.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/du delete " + world.getName() + " " + s));
+                                                return line1;
+                                            })
                                             .forEachOrdered(lines::add);
                                     }
                                     break;
@@ -524,7 +587,21 @@ public class DropupPlugin extends JavaPlugin implements Listener, BlockLogger.Ca
                         }
                     }
 
-                    ItemStack book = BookUtil.createBook(lines);
+                    List<BaseComponent[]> pages = new ArrayList<>();
+                    while(lines.size() > 0) {
+                        List<TextComponent> page = new ArrayList<>(12);
+                        for(int i = 0; i < 12 && lines.size() > 0; i++) { // max 12 lines per page
+                            page.add(lines.removeFirst());
+                        }
+                        pages.add(page.toArray(new BaseComponent[0]));
+                    }
+
+                    ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+                    BookMeta meta = (BookMeta) book.getItemMeta();
+                    meta.setTitle("");
+                    meta.setAuthor("");
+                    meta.spigot().setPages(pages);
+                    book.setItemMeta(meta);
                     ((Player) sender).openBook(book);
                 } else {
                     sender.sendMessage("只有玩家才能使用");

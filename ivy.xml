@@ -11,11 +11,11 @@
         <dependency org="com.google.code.gson" name="gson" rev="2.8.0" transitive="false">
             <artifact name="gson" type="jar" />
         </dependency>
-        <dependency org="org.spigotmc" name="spigot-api" rev="1.15.1-R0.1-SNAPSHOT" m:classifier="shaded">
+        <dependency org="org.spigotmc" name="spigot-api" rev="1.16.5-R0.1-SNAPSHOT" m:classifier="shaded">
             <artifact name="spigot-api" />
             <exclude org="net.md-5" />
         </dependency>
-        <dependency org="com.onarandombox.multiversecore" name="Multiverse-Core" rev="2.6.0" transitive="false">
+        <dependency org="com.onarandombox.multiversecore" name="Multiverse-Core" rev="4.2.2" transitive="false">
             <artifact name="Multiverse-Core" />
         </dependency>
         <exclude org="org.mockito" />
